@@ -27,6 +27,43 @@ obj.gopt.*
 obj.prof.*
 bin.prof.*
 
+#Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+#others
+*.suo
+*.ncb
+*.user
+*.sdf
+*.ipch
+
+[dD]ebug/
+[rR]elease/
+[iI]pch/
+
+#.vs/
+.svn/
+.deps/
+
 repro/reproInfo.hxx
 repro/repro
 
