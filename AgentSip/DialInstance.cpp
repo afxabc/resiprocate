@@ -580,6 +580,7 @@ void DialInstance::onNewSession(ServerInviteSessionHandle sis, InviteSession::Of
 		return;
 	}
 	// FIXME - do above for all headers
+	/*
 	if(msg.getReceivedTransport() == 0) 
 	{
 		// msg not received from the wire
@@ -587,6 +588,7 @@ void DialInstance::onNewSession(ServerInviteSessionHandle sis, InviteSession::Of
 		WarningLog(<<"request not received from the wire");
 		sis->reject(603);
 	}
+	*/
 	Tuple sourceTuple = msg.getSource();
 	Data sourceIp = Data(inet_ntoa(sourceTuple.toGenericIPAddress().v4Address.sin_addr));
 	

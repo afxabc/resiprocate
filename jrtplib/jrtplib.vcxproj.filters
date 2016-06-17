@@ -1,0 +1,153 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="rtpconnection.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtpcontributingsources.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtpdebug.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtpdestlist.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtperror.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtphandlers.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtpiptable.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtplocalinfo.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtpmcasttable.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtppacket.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtppacketprocessor.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtprandom.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtprtcpmodule.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtpsession.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtpsourcedata.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtpsourcedescription.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtpsources.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtpsrclist.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtptimeutil.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="rtpconfig.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtpconfig_win.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtpconnection.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtpcontributingsources.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtpdebug.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtpdefines.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtpdestlist.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtperror.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtpexceptionstructs.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtphandlers.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtpiptable.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtplocalinfo.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtpmcasttable.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtppacket.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtppacketprocessor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtprandom.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtprtcpmodule.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtpsession.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtpsourcedata.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtpsourcedescription.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtpsources.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtpsrclist.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtpstructs.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtptimeutil.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="README.TXT" />
+  </ItemGroup>
+</Project>

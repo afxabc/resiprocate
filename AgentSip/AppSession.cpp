@@ -2777,7 +2777,7 @@ void AppSession::buildCodecs(SdpContents::Session::Medium* media)
 	int codec = mParent->getDialerConfig().getCodecPriority();
 	switch (codec)
 	{
-	case PCMU:
+	case CodecNo_PCMU:
 		if(mParent->getDialerConfig().getCodecPCMU())
 		{
 			media->addCodec(SdpContents::Session::Codec::ULaw_8000);
@@ -2791,7 +2791,7 @@ void AppSession::buildCodecs(SdpContents::Session::Medium* media)
 			media->addCodec(SdpContents::Session::Codec::G729_8000);
 		}
 		break;
-	case G729:
+	case CodecNo_G729:
 		if(mParent->getDialerConfig().getCodecG729())
 		{
 			media->addCodec(SdpContents::Session::Codec::G729_8000);
@@ -2831,8 +2831,8 @@ void AppSession::buildCodecs(SdpContents::Session::Medium* media)
 	}
 	if(mParent->getDialerConfig().getCodeciLBC())
 	{
-		media->addCodec(SdpContents::Session::Codec::iLBC_8000);
-		media->addAttribute("fmtp", "97 mode=30");
+//		media->addCodec(SdpContents::Session::Codec::iLBC_8000);
+//		media->addAttribute("fmtp", "97 mode=30");
 	}
 
 }

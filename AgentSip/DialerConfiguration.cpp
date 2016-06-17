@@ -129,7 +129,7 @@ void DialerConfiguration::loadCodecConfig()
 	}
 	if(miLBC)
 	{
-		mCodecs.push_back(SdpContents::Session::Codec::iLBC_8000);
+//		mCodecs.push_back(SdpContents::Session::Codec::iLBC_8000);
 	}
 }
 

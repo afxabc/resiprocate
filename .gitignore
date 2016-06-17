@@ -60,6 +60,8 @@ bin.prof.*
 [rR]elease/
 [iI]pch/
 
+UpgradeLog*.htm
+
 #.vs/
 .svn/
 .deps/

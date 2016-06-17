@@ -96,7 +96,7 @@ public:
 	static const char *basicClearingReasonName[];
 	static unsigned int T0;
 
-	typedef enum FullClearingReason 
+	typedef enum 
 	{
 		Unset,
 
@@ -112,10 +112,10 @@ public:
 		// Rejected
 		RejectBusy,
 		RejectOther
-	};
+	} FullClearingReason;
 
 	// More basic then CallState, used for reporting
-	typedef enum CallStatus
+	typedef enum
 	{
 		PreDial,			// the call hasn't started dialing
 		Dialing,			// the call is dialing
@@ -123,7 +123,7 @@ public:
 		Talking,			// the call has connected
 		Finishing,			// the call has been hung up
 		Unknown			// unknown
-	};
+	} CallStatus;
 
 	typedef enum
 	{

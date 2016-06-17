@@ -1,0 +1,135 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="14.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{77557A4D-764C-4C4C-8B74-D5B1F69BBFFE}</ProjectGuid>
+    <RootNamespace>mediastream</RootNamespace>
+    <Keyword>Win32Proj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v140</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <PlatformToolset>v140</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <_ProjectFileVersion>14.0.25123.0</_ProjectFileVersion>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir>$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <OutDir>$(SolutionDir)$(Configuration)\</OutDir>
+    <IntDir>$(Configuration)\</IntDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <Optimization>Disabled</Optimization>
+      <AdditionalIncludeDirectories>../ffmpeg;./;../;../thirdlibrary/speexec/include;../thirdlibrary/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_LIB;VIDEO_ENABLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <MinimalRebuild>true</MinimalRebuild>
+      <BasicRuntimeChecks>EnableFastChecks</BasicRuntimeChecks>
+      <RuntimeLibrary>MultiThreadedDebugDLL</RuntimeLibrary>
+      <PrecompiledHeader />
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>EditAndContinue</DebugInformationFormat>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>../ffmpeg;./;../;../thirdlibrary/speexec/include;../thirdlibrary/;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <PrecompiledHeader />
+      <WarningLevel>Level3</WarningLevel>
+      <DebugInformationFormat>ProgramDatabase</DebugInformationFormat>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="audioconf.cpp" />
+    <ClCompile Include="audiodecode.cpp" />
+    <ClCompile Include="audioencode.cpp" />
+    <ClCompile Include="audioplayer.cpp" />
+    <ClCompile Include="audiorecord.cpp" />
+    <ClCompile Include="audiostream.cpp" />
+    <ClCompile Include="codecg723.cpp" />
+    <ClCompile Include="codecg729.cpp" />
+    <ClCompile Include="codecgsm.cpp" />
+    <ClCompile Include="codecilbc.cpp" />
+    <ClCompile Include="codecpcm.cpp" />
+    <ClCompile Include="dtmf.cpp" />
+    <ClCompile Include="fileplayer.cpp" />
+    <ClCompile Include="gtagc.cpp" />
+    <ClCompile Include="mssndcard.cpp" />
+    <ClCompile Include="msticker.cpp" />
+    <ClCompile Include="processor.cpp" />
+    <ClCompile Include="processorchain.cpp" />
+    <ClCompile Include="rtpread.cpp" />
+    <ClCompile Include="rtpwrite.cpp" />
+    <ClCompile Include="speexec.cpp" />
+    <ClCompile Include="wincardread.cpp" />
+    <ClCompile Include="wincardwrite.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="audioconf.h" />
+    <ClInclude Include="audiodecode.h" />
+    <ClInclude Include="audioencode.h" />
+    <ClInclude Include="audioplayer.h" />
+    <ClInclude Include="audiorecord.h" />
+    <ClInclude Include="audiostream.h" />
+    <ClInclude Include="codecg723.h" />
+    <ClInclude Include="codecg729.h" />
+    <ClInclude Include="codecgsm.h" />
+    <ClInclude Include="codecilbc.h" />
+    <ClInclude Include="codecpcm.h" />
+    <ClInclude Include="dtmf.h" />
+    <ClInclude Include="fileplayer.h" />
+    <ClInclude Include="g711common.h" />
+    <ClInclude Include="gtagc.h" />
+    <ClInclude Include="mediacontext.h" />
+    <ClInclude Include="mssndcard.h" />
+    <ClInclude Include="msticker.h" />
+    <ClInclude Include="processor.h" />
+    <ClInclude Include="processorchain.h" />
+    <ClInclude Include="RtpProfile.h" />
+    <ClInclude Include="rtpread.h" />
+    <ClInclude Include="rtpwrite.h" />
+    <ClInclude Include="speexec.h" />
+    <ClInclude Include="str_utils.h" />
+    <ClInclude Include="waveheader.h" />
+    <ClInclude Include="wincardread.h" />
+    <ClInclude Include="wincardwrite.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="ReadMe.txt" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

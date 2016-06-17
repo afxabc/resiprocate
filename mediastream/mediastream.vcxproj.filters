@@ -1,0 +1,177 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="源文件">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="头文件">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
+    </Filter>
+    <Filter Include="资源文件">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav</Extensions>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="audioconf.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="audiodecode.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="audioencode.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="audioplayer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="audiorecord.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="audiostream.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="codecg723.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="codecg729.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="codecgsm.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="codecilbc.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="codecpcm.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="dtmf.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="fileplayer.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="gtagc.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="mssndcard.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="msticker.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="processor.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="processorchain.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtpread.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="rtpwrite.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="speexec.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="wincardread.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="wincardwrite.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="audioconf.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="audiodecode.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="audioencode.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="audioplayer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="audiorecord.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="audiostream.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="codecg723.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="codecg729.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="codecgsm.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="codecilbc.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="codecpcm.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="dtmf.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="fileplayer.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="g711common.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="gtagc.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="mediacontext.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="mssndcard.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="msticker.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="processor.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="processorchain.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="RtpProfile.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtpread.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="rtpwrite.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="speexec.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="str_utils.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="waveheader.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="wincardread.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+    <ClInclude Include="wincardwrite.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Text Include="ReadMe.txt" />
+  </ItemGroup>
+</Project>

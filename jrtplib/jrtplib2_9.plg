@@ -1,0 +1,86 @@
+<html>
+<body>
+<pre>
+<h1>Build Log</h1>
+<h3>
+--------------------Configuration: jrtplib2_9 - Win32 Debug--------------------
+</h3>
+<h3>Command Lines</h3>
+Creating temporary file "D:\DOCUME~1\yudongbo\LOCALS~1\Temp\RSP28.tmp" with contents
+[
+/nologo /MLd /W3 /Gm /GX /ZI /Od /D "WIN32" /D "_DEBUG" /D "_MBCS" /D "_LIB" /Fp"Debug/jrtplib2_9.pch" /YX /Fo"Debug/" /Fd"Debug/" /FD /GZ /c 
+"N:\jrtplib-2.9\rtpconnection.cpp"
+"N:\jrtplib-2.9\rtpcontributingsources.cpp"
+"N:\jrtplib-2.9\rtpdebug.cpp"
+"N:\jrtplib-2.9\rtpdestlist.cpp"
+"N:\jrtplib-2.9\rtperror.cpp"
+"N:\jrtplib-2.9\rtphandlers.cpp"
+"N:\jrtplib-2.9\rtpiptable.cpp"
+"N:\jrtplib-2.9\rtplocalinfo.cpp"
+"N:\jrtplib-2.9\rtpmcasttable.cpp"
+"N:\jrtplib-2.9\rtppacket.cpp"
+"N:\jrtplib-2.9\rtppacketprocessor.cpp"
+"N:\jrtplib-2.9\rtprandom.cpp"
+"N:\jrtplib-2.9\rtprtcpmodule.cpp"
+"N:\jrtplib-2.9\rtpsession.cpp"
+"N:\jrtplib-2.9\rtpsourcedata.cpp"
+"N:\jrtplib-2.9\rtpsourcedescription.cpp"
+"N:\jrtplib-2.9\rtpsources.cpp"
+"N:\jrtplib-2.9\rtpsrclist.cpp"
+"N:\jrtplib-2.9\rtptimeutil.cpp"
+]
+Creating command line "cl.exe @D:\DOCUME~1\yudongbo\LOCALS~1\Temp\RSP28.tmp" 
+Creating temporary file "D:\DOCUME~1\yudongbo\LOCALS~1\Temp\RSP29.tmp" with contents
+[
+/nologo /out:"Debug\jrtplib-2.9.lib" 
+".\Debug\rtpconnection.obj"
+".\Debug\rtpcontributingsources.obj"
+".\Debug\rtpdebug.obj"
+".\Debug\rtpdestlist.obj"
+".\Debug\rtperror.obj"
+".\Debug\rtphandlers.obj"
+".\Debug\rtpiptable.obj"
+".\Debug\rtplocalinfo.obj"
+".\Debug\rtpmcasttable.obj"
+".\Debug\rtppacket.obj"
+".\Debug\rtppacketprocessor.obj"
+".\Debug\rtprandom.obj"
+".\Debug\rtprtcpmodule.obj"
+".\Debug\rtpsession.obj"
+".\Debug\rtpsourcedata.obj"
+".\Debug\rtpsourcedescription.obj"
+".\Debug\rtpsources.obj"
+".\Debug\rtpsrclist.obj"
+".\Debug\rtptimeutil.obj"
+]
+Creating command line "link.exe -lib @D:\DOCUME~1\yudongbo\LOCALS~1\Temp\RSP29.tmp"
+<h3>Output Window</h3>
+Compiling...
+rtpconnection.cpp
+rtpcontributingsources.cpp
+rtpdebug.cpp
+rtpdestlist.cpp
+rtperror.cpp
+rtphandlers.cpp
+rtpiptable.cpp
+rtplocalinfo.cpp
+rtpmcasttable.cpp
+rtppacket.cpp
+rtppacketprocessor.cpp
+rtprandom.cpp
+rtprtcpmodule.cpp
+rtpsession.cpp
+rtpsourcedata.cpp
+rtpsourcedescription.cpp
+rtpsources.cpp
+rtpsrclist.cpp
+rtptimeutil.cpp
+Creating library...
+
+
+
+<h3>Results</h3>
+jrtplib-2.9.lib - 0 error(s), 0 warning(s)
+</pre>
+</body>
+</html>

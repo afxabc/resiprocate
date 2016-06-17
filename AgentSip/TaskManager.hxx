@@ -18,12 +18,12 @@ class TaskManager {
 
 public:
 
-  typedef enum TaskResult {
+  typedef enum {
     TaskComplete,		// the task doesn't need to run again
     TaskNotComplete,		// the task would like to run again shortly
     TaskIndefinite		// the task can be run again, but doesn't
 				// object if the TaskManager stops
-  };
+  } TaskResult;
 
   class RecurringTask {
   public:

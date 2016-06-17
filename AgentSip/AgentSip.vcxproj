@@ -78,11 +78,15 @@
     <ClCompile Include="DialInstance.cpp" />
     <ClCompile Include="DumRecurringTask.cxx" />
     <ClCompile Include="MyAppDialogSet.cpp" />
-    <ClCompile Include="MyAudioStream.cpp" />
+    <ClCompile Include="MyAudioStream.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="MyInviteSessionHandler.cpp" />
     <ClCompile Include="MyRegistrationHandler.cpp" />
     <ClCompile Include="MySipdialer.cpp" />
-    <ClCompile Include="MyVideoStream.cpp" />
+    <ClCompile Include="MyVideoStream.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="PhoneLine.cpp" />
     <ClCompile Include="RegisterInstance.cpp" />
     <ClCompile Include="SipUserAgent.cpp" />
@@ -96,11 +100,15 @@
     <ClInclude Include="DialInstance.hxx" />
     <ClInclude Include="DumRecurringTask.hxx" />
     <ClInclude Include="MyAppDialogSet.hxx" />
-    <ClInclude Include="MyAudioStream.hxx" />
+    <ClInclude Include="MyAudioStream.hxx">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">false</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="MyInviteSessionHandler.hxx" />
     <ClInclude Include="MyRegistrationHandler.hxx" />
     <ClInclude Include="MySipDialer.hxx" />
-    <ClInclude Include="MyVideoStream.hxx" />
+    <ClInclude Include="MyVideoStream.hxx">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="PhoneLine.hxx" />
     <ClInclude Include="RegisterInstance.hxx" />
     <ClInclude Include="SipUserAgent.hxx" />

@@ -554,22 +554,22 @@ bool MySipDialer::SelectVoiceCodec(int nCodecNo)
 
 	switch(nCodecNo)
 	{
-	case PCMU:
+	case CodecNo_PCMU:
 		dc->setCodecPCMU(true);
 		return true;
-	case PCMA:
+	case CodecNo_PCMA:
 		dc->setCodecPCMA(true);
 		return true;
-	case G723:
+	case CodecNo_G723:
 		dc->setCodecG723(true);
 		return true;
-	case G729:
+	case CodecNo_G729:
 		dc->setCodecG729(true);
 		return true;
-	case GSM:
+	case CodecNo_GSM:
 		dc->setCodecGSM(true);
 		return true;
-	case iLBC:
+	case CodecNo_iLBC:
 		dc->setCodeciLBC(true);
 		return true;
 	default:
@@ -584,22 +584,22 @@ bool MySipDialer::DeselectVoiceCodec(int nCodecNo)
 
 	switch(nCodecNo)
 	{
-	case PCMU:
+	case CodecNo_PCMU:
 		dc->setCodecPCMU(false);
 		return true;
-	case PCMA:
+	case CodecNo_PCMA:
 		dc->setCodecPCMA(false);
 		return true;
-	case GSM:
+	case CodecNo_GSM:
 		dc->setCodecGSM(false);
 		return true;
-	case iLBC:
+	case CodecNo_iLBC:
 		dc->setCodeciLBC(false);
 		return true;
-	case G723:
+	case CodecNo_G723:
 		dc->setCodecG723(false);
 		return true;
-	case G729:
+	case CodecNo_G729:
 		dc->setCodecG729(false);
 		return true;
 	default:
