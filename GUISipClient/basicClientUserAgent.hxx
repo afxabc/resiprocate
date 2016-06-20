@@ -2,7 +2,6 @@
 #define basicClientUserAgent_hxx
 
 #include <set>
-#include "basicClientCmdLineParser.hxx"
 
 #include "resip/stack/EventStackThread.hxx"
 #include "resip/dum/MasterProfile.hxx"
@@ -15,14 +14,14 @@
 #include "resip/dum/InviteSessionHandler.hxx"
 #include "resip/dum/DialogUsageManager.hxx"
 #include "resip/dum/Postable.hxx"
+#include "rutil/ThreadIf.hxx"
 
 namespace resip
 {
 class BasicClientCall;
 class FdPollGrp;
 
-class BasicClientUserAgent : public BasicClientCmdLineParser, 
-                             public Postable,
+class BasicClientUserAgent : public Postable,
                              public DialogSetHandler,
                              public ClientRegistrationHandler, 
                              public ClientSubscriptionHandler, 
@@ -30,20 +29,23 @@ class BasicClientUserAgent : public BasicClientCmdLineParser,
                              public OutOfDialogHandler, 
                              public InviteSessionHandler,
                              public DumShutdownHandler,
-                             public RedirectHandler
+                             public RedirectHandler,
+							 public ThreadIf
 {
 public:
-   BasicClientUserAgent(int argc, char** argv);
+   BasicClientUserAgent();
    virtual ~BasicClientUserAgent();
 
-   virtual void startup();
-   virtual void shutdown();
-   bool process(int timeoutMs);  // returns false when shutdown is complete and process should no longer be called
+   void start(const char* url, const char* passwd, int rtpPort, int localPort = 12001);
+   void stop();
+   
+   bool openSession(const char* target);
 
    DialogUsageManager& getDialogUsageManager() { return *mDum; }
    SharedPtr<UserProfile> getIncomingUserProfile(const SipMessage& msg) { return mProfile; } // This test program only uses the one global Master Profile - just return it
       
 protected:
+	void setupProfile();
    // Postable Handler ////////////////////////////////////////////////////////////
    virtual void post(Message*);  // Used to receive Connection Terminated messages
 
@@ -122,6 +124,9 @@ protected:
    virtual void onRedirectReceived(resip::AppDialogSetHandle, const resip::SipMessage& response);
    virtual bool onTryingNextTarget(resip::AppDialogSetHandle, const resip::SipMessage& request);
 
+	// Í¨¹ý ThreadIf ¼Ì³Ð
+	virtual void thread() override;
+
 protected:
    void addTransport(TransportType type, int port);
    friend class NotifyTimer;
@@ -136,10 +141,10 @@ protected:
    FdPollGrp* mPollGrp;
    EventThreadInterruptor* mInterruptor;
    SipStack* mStack;
+   Transport* mTransport;
    EventStackThread* mStackThread;
    DialogUsageManager* mDum;
    volatile bool mDumShutdownRequested;
-   bool mShuttingdown;
    bool mDumShutdown;
    ClientRegistrationHandle mRegHandle;
    ClientSubscriptionHandle mClientSubscriptionHandle;
@@ -152,6 +157,36 @@ protected:
    void registerCall(BasicClientCall* call);
    void unregisterCall(BasicClientCall* call);
    bool isValidCall(BasicClientCall* call);
+
+private:
+
+	typedef enum
+	{
+		Undefined,                 // Not used
+		Connected,
+		CallerStart,
+		CalleeStart,
+		Idle
+	}CallState;
+
+private:
+	CallState state_;
+	int mLocalPort;
+	int mRtpPort;
+
+	int mRegisterDuration;
+
+	Uri mAor;
+	Data mPassword;
+
+	bool mOutboundEnabled;
+	Uri mOutboundProxy;
+	Uri mContact;
+
+	Uri mSubscribeTarget;
+	Uri mCallTarget;
+
+
 };
  
 }

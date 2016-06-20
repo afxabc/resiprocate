@@ -4,6 +4,7 @@
 
 #pragma once
 
+#include "basicClientUserAgent.hxx"
 
 // CGUISipClientDlg ¶Ô»°¿ò
 class CGUISipClientDlg : public CDialogEx
@@ -30,4 +31,13 @@ protected:
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
 	DECLARE_MESSAGE_MAP()
+
+private:
+	resip::BasicClientUserAgent agent_;
+public:
+	CString mLocalUri;
+	CString mPasswd;
+	afx_msg void OnBnClickedRegister();
+	afx_msg void OnBnClickedCall();
+	CString mTargetUri;
 };

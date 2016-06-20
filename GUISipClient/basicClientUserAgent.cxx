@@ -111,329 +111,313 @@ class NotifyTimer : public resip::DumCommand
 };
 } // end namespace
 
-BasicClientUserAgent::BasicClientUserAgent(int argc, char** argv) : 
-   BasicClientCmdLineParser(argc, argv),
-   mProfile(new MasterProfile),
-#if defined(USE_SSL)
-   mSecurity(new Security(mCertPath)),
-#else
-   mSecurity(0),
-#endif
-   mPollGrp(FdPollGrp::create()),  // Will create EPoll implementation if available, otherwise FdPoll
-   mInterruptor(new EventThreadInterruptor(*mPollGrp)),
-   mStack(new SipStack(mSecurity, DnsStub::EmptyNameserverList, mInterruptor, false, 0, 0, mPollGrp)),
-   mStackThread(new EventStackThread(*mStack, *mInterruptor, *mPollGrp)),
-   mDum(new DialogUsageManager(*mStack)),
-   mDumShutdownRequested(false),
-   mShuttingdown(false),
-   mDumShutdown(false),
-   mRegistrationRetryDelayTime(0),
-   mCurrentNotifyTimerId(0)
+BasicClientUserAgent::BasicClientUserAgent() :
+	state_(Undefined),
+	mLocalPort(0),
+	mRegisterDuration(3600),
+	mTransport(NULL),
+	mOutboundEnabled(false),
+	mProfile(new MasterProfile),
+	mPollGrp(FdPollGrp::create()),  // Will create EPoll implementation if available, otherwise FdPoll
+	mInterruptor(new EventThreadInterruptor(*mPollGrp)),
+	mStack(new SipStack(mSecurity, DnsStub::EmptyNameserverList, mInterruptor, false, 0, 0, mPollGrp)),
+	mStackThread(new EventStackThread(*mStack, *mInterruptor, *mPollGrp)),
+	mDum(new DialogUsageManager(*mStack)),
+	mDumShutdownRequested(false),
+	mDumShutdown(false),
+	mRegistrationRetryDelayTime(0),
+	mCurrentNotifyTimerId(0)
 {
-   Log::initialize(mLogType, mLogLevel, argv[0]);
 
-   if(mHostFileLookupOnlyDnsMode)
-   {
-      AresDns::enableHostFileLookupOnlyMode(true);
-   }
+	// Install Managers
+	mDum->setClientAuthManager(std::auto_ptr<ClientAuthManager>(new ClientAuthManager));
+	mDum->setKeepAliveManager(std::auto_ptr<KeepAliveManager>(new KeepAliveManager));
+	mProfile->setKeepAliveTimeForDatagram(30);
+	mProfile->setKeepAliveTimeForStream(120);
 
-   addTransport(UDP, mUdpPort);
-   addTransport(TCP, mTcpPort);
-#if defined(USE_SSL)
-   addTransport(TLS, mTlsPort);
-#endif
-#if defined(USE_DTLS)
-   addTransport(DTLS, mDtlsPort);
-#endif
+	// Install Handlers
+	mDum->setInviteSessionHandler(this);
+	mDum->setDialogSetHandler(this);
+	mDum->addOutOfDialogHandler(OPTIONS, this);
+	//mDum->addOutOfDialogHandler(REFER, this);
+	mDum->setRedirectHandler(this);
+	mDum->setClientRegistrationHandler(this);
+	mDum->addClientSubscriptionHandler("basicClientTest", this);   // fabricated test event package
+	mDum->addServerSubscriptionHandler("basicClientTest", this);
 
-   // Disable Statistics Manager
-   mStack->statisticsManagerEnabled() = false;
+	// Set AppDialogSetFactory
+	auto_ptr<AppDialogSetFactory> dsf(new ClientAppDialogSetFactory(*this));
+	mDum->setAppDialogSetFactory(dsf);
 
-   // Supported Methods
-   mProfile->clearSupportedMethods();
-   mProfile->addSupportedMethod(INVITE);
-   mProfile->addSupportedMethod(ACK);
-   mProfile->addSupportedMethod(CANCEL);
-   mProfile->addSupportedMethod(OPTIONS);
-   mProfile->addSupportedMethod(BYE);
-   //mProfile->addSupportedMethod(REFER);
-   mProfile->addSupportedMethod(NOTIFY);
-   mProfile->addSupportedMethod(SUBSCRIBE);
-   //mProfile->addSupportedMethod(UPDATE);
-   mProfile->addSupportedMethod(INFO);
-   mProfile->addSupportedMethod(MESSAGE);
-   mProfile->addSupportedMethod(PRACK);
-   //mProfile->addSupportedOptionTag(Token(Symbols::C100rel));  // Automatically added when using setUacReliableProvisionalMode
-   mProfile->setUacReliableProvisionalMode(MasterProfile::Supported);
-   mProfile->setUasReliableProvisionalMode(MasterProfile::SupportedEssential);  
+	mDum->setMasterProfile(mProfile);
 
-   // Support Languages
-   mProfile->clearSupportedLanguages();
-   mProfile->addSupportedLanguage(Token("en"));  
-
-   // Support Mime Types
-   mProfile->clearSupportedMimeTypes();
-   mProfile->addSupportedMimeType(INVITE, Mime("application", "sdp"));
-   mProfile->addSupportedMimeType(INVITE, Mime("multipart", "mixed"));  
-   mProfile->addSupportedMimeType(INVITE, Mime("multipart", "signed"));  
-   mProfile->addSupportedMimeType(INVITE, Mime("multipart", "alternative"));  
-   mProfile->addSupportedMimeType(OPTIONS,Mime("application", "sdp"));
-   mProfile->addSupportedMimeType(OPTIONS,Mime("multipart", "mixed"));  
-   mProfile->addSupportedMimeType(OPTIONS, Mime("multipart", "signed"));  
-   mProfile->addSupportedMimeType(OPTIONS, Mime("multipart", "alternative"));  
-   mProfile->addSupportedMimeType(PRACK,  Mime("application", "sdp"));  
-   mProfile->addSupportedMimeType(PRACK,  Mime("multipart", "mixed"));  
-   mProfile->addSupportedMimeType(PRACK,  Mime("multipart", "signed"));  
-   mProfile->addSupportedMimeType(PRACK,  Mime("multipart", "alternative"));  
-   mProfile->addSupportedMimeType(UPDATE, Mime("application", "sdp"));  
-   mProfile->addSupportedMimeType(UPDATE, Mime("multipart", "mixed"));  
-   mProfile->addSupportedMimeType(UPDATE, Mime("multipart", "signed"));  
-   mProfile->addSupportedMimeType(UPDATE, Mime("multipart", "alternative"));  
-   mProfile->addSupportedMimeType(MESSAGE, Mime("text","plain")); // Invite session in-dialog routing testing
-   mProfile->addSupportedMimeType(NOTIFY, Mime("text","plain"));  // subscription testing
-   //mProfile->addSupportedMimeType(NOTIFY, Mime("message", "sipfrag"));  
-
-   // Supported Options Tags
-   mProfile->clearSupportedOptionTags();
-   //mMasterProfile->addSupportedOptionTag(Token(Symbols::Replaces));      
-   mProfile->addSupportedOptionTag(Token(Symbols::Timer));     // Enable Session Timers
-   if(mOutboundEnabled)
-   {
-      mProfile->addSupportedOptionTag(Token(Symbols::Outbound));  // RFC 5626 - outbound
-      mProfile->addSupportedOptionTag(Token(Symbols::Path));      // RFC 3327 - path
-   }
-   //mMasterProfile->addSupportedOptionTag(Token(Symbols::NoReferSub));
-   //mMasterProfile->addSupportedOptionTag(Token(Symbols::TargetDialog));
-
-   // Supported Schemes
-   mProfile->clearSupportedSchemes();
-   mProfile->addSupportedScheme("sip");  
-#if defined(USE_SSL)
-   mProfile->addSupportedScheme("sips");  
-#endif
-
-   // Validation Settings
-   mProfile->validateContentEnabled() = false;
-   mProfile->validateContentLanguageEnabled() = false;
-   mProfile->validateAcceptEnabled() = false;
-
-   // Have stack add Allow/Supported/Accept headers to INVITE dialog establishment messages
-   mProfile->clearAdvertisedCapabilities(); // Remove Profile Defaults, then add our preferences
-   mProfile->addAdvertisedCapability(Headers::Allow);  
-   //mProfile->addAdvertisedCapability(Headers::AcceptEncoding);  // This can be misleading - it might specify what is expected in response
-   mProfile->addAdvertisedCapability(Headers::AcceptLanguage);  
-   mProfile->addAdvertisedCapability(Headers::Supported);  
-   mProfile->setMethodsParamEnabled(true);
-
-   // Install Sdp Message Decorator
-   SharedPtr<MessageDecorator> outboundDecorator(new SdpMessageDecorator);
-   mProfile->setOutboundDecorator(outboundDecorator);
-
-   // Other Profile Settings
-   mProfile->setUserAgent("basicClient/1.0");
-   mProfile->setDefaultRegistrationTime(mRegisterDuration);
-   mProfile->setDefaultRegistrationRetryTime(120);
-   if(!mContact.host().empty())
-   {
-      mProfile->setOverrideHostAndPort(mContact);
-   }
-   if(!mOutboundProxy.host().empty())
-   {
-      mProfile->setOutboundProxy(Uri(mOutboundProxy));
-      //mProfile->setForceOutboundProxyOnAllRequestsEnabled(true);
-      mProfile->setExpressOutboundAsRouteSetEnabled(true);
-   }
-
-   // UserProfile Settings
-   mProfile->setDefaultFrom(NameAddr(mAor));
-#ifdef TEST_PASSING_A1_HASH_FOR_PASSWORD
-   MD5Stream a1;
-   a1 << mAor.user()
-      << Symbols::COLON
-      << mAor.host()
-      << Symbols::COLON
-      << mPassword;
-   mProfile->setDigestCredential(mAor.host(), mAor.user(), a1.getHex(), true);   
-#else
-   mProfile->setDigestCredential(mAor.host(), mAor.user(), mPassword);   
-#endif
-   // Generate InstanceId appropriate for testing only.  Should be UUID that persists 
-   // across machine re-starts and is unique to this applicaiton instance.  The one used 
-   // here is only as unique as the hostname of this machine.  If someone runs two 
-   // instances of this application on the same host for the same Aor, then things will 
-   // break.  See RFC5626 section 4.1
-   Data hostname = DnsUtil::getLocalHostName();
-   Data instanceHash = hostname.md5().uppercase();
-   assert(instanceHash.size() == 32);
-   Data instanceId(48, Data::Preallocate);
-   instanceId += "<urn:uuid:";
-   instanceId += instanceHash.substr(0, 8);
-   instanceId += "-";
-   instanceId += instanceHash.substr(8, 4);
-   instanceId += "-";
-   instanceId += instanceHash.substr(12, 4);
-   instanceId += "-";
-   instanceId += instanceHash.substr(16, 4);
-   instanceId += "-";
-   instanceId += instanceHash.substr(20, 12);
-   instanceId += ">";
-   mProfile->setInstanceId(instanceId);  
-   if(mOutboundEnabled)
-   {
-      mProfile->setRegId(1);
-      mProfile->clientOutboundEnabled() = true;
-   }
-
-   // Install Managers
-   mDum->setClientAuthManager(std::auto_ptr<ClientAuthManager>(new ClientAuthManager));
-   mDum->setKeepAliveManager(std::auto_ptr<KeepAliveManager>(new KeepAliveManager));
-   mProfile->setKeepAliveTimeForDatagram(30);
-   mProfile->setKeepAliveTimeForStream(120);
-
-   // Install Handlers
-   mDum->setInviteSessionHandler(this); 
-   mDum->setDialogSetHandler(this);
-   mDum->addOutOfDialogHandler(OPTIONS, this);
-   //mDum->addOutOfDialogHandler(REFER, this);
-   mDum->setRedirectHandler(this);
-   mDum->setClientRegistrationHandler(this);   
-   mDum->addClientSubscriptionHandler("basicClientTest", this);   // fabricated test event package
-   mDum->addServerSubscriptionHandler("basicClientTest", this);
-
-   // Set AppDialogSetFactory
-   auto_ptr<AppDialogSetFactory> dsf(new ClientAppDialogSetFactory(*this));
-   mDum->setAppDialogSetFactory(dsf);
-
-   mDum->setMasterProfile(mProfile);
-
-   mDum->registerForConnectionTermination(this);
+	mDum->registerForConnectionTermination(this);
 }
 
 BasicClientUserAgent::~BasicClientUserAgent()
 {
+	stop();
+
+	delete mDum;
+	delete mStack;
+	delete mStackThread;
+	delete mInterruptor;
+	delete mPollGrp;
+   // Note:  mStack descructor will delete mSecurity
+}
+
+void resip::BasicClientUserAgent::setupProfile()
+{
+	addTransport(UDP, mLocalPort);
+
+	// Disable Statistics Manager
+	mStack->statisticsManagerEnabled() = false;
+
+	// Supported Methods
+	mProfile->clearSupportedMethods();
+	mProfile->addSupportedMethod(INVITE);
+	mProfile->addSupportedMethod(ACK);
+	mProfile->addSupportedMethod(CANCEL);
+	mProfile->addSupportedMethod(OPTIONS);
+	mProfile->addSupportedMethod(BYE);
+	//mProfile->addSupportedMethod(REFER);
+	mProfile->addSupportedMethod(NOTIFY);
+	mProfile->addSupportedMethod(SUBSCRIBE);
+	//mProfile->addSupportedMethod(UPDATE);
+	mProfile->addSupportedMethod(INFO);
+	mProfile->addSupportedMethod(MESSAGE);
+	mProfile->addSupportedMethod(PRACK);
+	//mProfile->addSupportedOptionTag(Token(Symbols::C100rel));  // Automatically added when using setUacReliableProvisionalMode
+	mProfile->setUacReliableProvisionalMode(MasterProfile::Supported);
+	mProfile->setUasReliableProvisionalMode(MasterProfile::SupportedEssential);
+
+	// Support Languages
+	mProfile->clearSupportedLanguages();
+	mProfile->addSupportedLanguage(Token("en"));
+
+	// Support Mime Types
+	mProfile->clearSupportedMimeTypes();
+	mProfile->addSupportedMimeType(INVITE, Mime("application", "sdp"));
+	mProfile->addSupportedMimeType(INVITE, Mime("multipart", "mixed"));
+	mProfile->addSupportedMimeType(INVITE, Mime("multipart", "signed"));
+	mProfile->addSupportedMimeType(INVITE, Mime("multipart", "alternative"));
+	mProfile->addSupportedMimeType(OPTIONS, Mime("application", "sdp"));
+	mProfile->addSupportedMimeType(OPTIONS, Mime("multipart", "mixed"));
+	mProfile->addSupportedMimeType(OPTIONS, Mime("multipart", "signed"));
+	mProfile->addSupportedMimeType(OPTIONS, Mime("multipart", "alternative"));
+	mProfile->addSupportedMimeType(PRACK, Mime("application", "sdp"));
+	mProfile->addSupportedMimeType(PRACK, Mime("multipart", "mixed"));
+	mProfile->addSupportedMimeType(PRACK, Mime("multipart", "signed"));
+	mProfile->addSupportedMimeType(PRACK, Mime("multipart", "alternative"));
+	mProfile->addSupportedMimeType(UPDATE, Mime("application", "sdp"));
+	mProfile->addSupportedMimeType(UPDATE, Mime("multipart", "mixed"));
+	mProfile->addSupportedMimeType(UPDATE, Mime("multipart", "signed"));
+	mProfile->addSupportedMimeType(UPDATE, Mime("multipart", "alternative"));
+	mProfile->addSupportedMimeType(MESSAGE, Mime("text", "plain")); // Invite session in-dialog routing testing
+	mProfile->addSupportedMimeType(NOTIFY, Mime("text", "plain"));  // subscription testing
+																	//mProfile->addSupportedMimeType(NOTIFY, Mime("message", "sipfrag"));  
+
+																	// Supported Options Tags
+	mProfile->clearSupportedOptionTags();
+	//mMasterProfile->addSupportedOptionTag(Token(Symbols::Replaces));      
+	mProfile->addSupportedOptionTag(Token(Symbols::Timer));     // Enable Session Timers
+	if (mOutboundEnabled)
+	{
+		mProfile->addSupportedOptionTag(Token(Symbols::Outbound));  // RFC 5626 - outbound
+		mProfile->addSupportedOptionTag(Token(Symbols::Path));      // RFC 3327 - path
+	}
+	//mMasterProfile->addSupportedOptionTag(Token(Symbols::NoReferSub));
+	//mMasterProfile->addSupportedOptionTag(Token(Symbols::TargetDialog));
+
+	// Supported Schemes
+	mProfile->clearSupportedSchemes();
+	mProfile->addSupportedScheme("sip");
+
+	// Validation Settings
+	mProfile->validateContentEnabled() = false;
+	mProfile->validateContentLanguageEnabled() = false;
+	mProfile->validateAcceptEnabled() = false;
+
+	// Have stack add Allow/Supported/Accept headers to INVITE dialog establishment messages
+	mProfile->clearAdvertisedCapabilities(); // Remove Profile Defaults, then add our preferences
+	mProfile->addAdvertisedCapability(Headers::Allow);
+	//mProfile->addAdvertisedCapability(Headers::AcceptEncoding);  // This can be misleading - it might specify what is expected in response
+	mProfile->addAdvertisedCapability(Headers::AcceptLanguage);
+	mProfile->addAdvertisedCapability(Headers::Supported);
+	mProfile->setMethodsParamEnabled(true);
+
+	// Install Sdp Message Decorator
+	SharedPtr<MessageDecorator> outboundDecorator(new SdpMessageDecorator);
+	mProfile->setOutboundDecorator(outboundDecorator);
+
+	// Other Profile Settings
+	mProfile->setUserAgent("basicClient/1.0");
+	mProfile->setDefaultRegistrationTime(mRegisterDuration);
+	mProfile->setDefaultRegistrationRetryTime(120);
+	if (!mContact.host().empty())
+	{
+		mProfile->setOverrideHostAndPort(mContact);
+	}
+	if (!mOutboundProxy.host().empty())
+	{
+		mProfile->setOutboundProxy(Uri(mOutboundProxy));
+		//mProfile->setForceOutboundProxyOnAllRequestsEnabled(true);
+		mProfile->setExpressOutboundAsRouteSetEnabled(true);
+	}
+
+	// UserProfile Settings
+	mProfile->setDefaultFrom(NameAddr(mAor));
+	mProfile->setDigestCredential(mAor.host(), mAor.user(), mPassword);
+	// Generate InstanceId appropriate for testing only.  Should be UUID that persists 
+	// across machine re-starts and is unique to this applicaiton instance.  The one used 
+	// here is only as unique as the hostname of this machine.  If someone runs two 
+	// instances of this application on the same host for the same Aor, then things will 
+	// break.  See RFC5626 section 4.1
+	Data hostname = DnsUtil::getLocalHostName();
+	Data instanceHash = hostname.md5().uppercase();
+	assert(instanceHash.size() == 32);
+	Data instanceId(48, Data::Preallocate);
+	instanceId += "<urn:uuid:";
+	instanceId += instanceHash.substr(0, 8);
+	instanceId += "-";
+	instanceId += instanceHash.substr(8, 4);
+	instanceId += "-";
+	instanceId += instanceHash.substr(12, 4);
+	instanceId += "-";
+	instanceId += instanceHash.substr(16, 4);
+	instanceId += "-";
+	instanceId += instanceHash.substr(20, 12);
+	instanceId += ">";
+	mProfile->setInstanceId(instanceId);
+	if (mOutboundEnabled)
+	{
+		mProfile->setRegId(1);
+		mProfile->clientOutboundEnabled() = true;
+	}
+
+}
+
+void resip::BasicClientUserAgent::thread()
+{
+	InfoLog(<< "register for " << mAor);
+	mDum->send(mDum->makeRegistration(NameAddr(mAor)));
+
+	mShutdown = false;
+	while (!mShutdown)
+	{
+		mDum->process(100);
+		if (mDumShutdownRequested)
+		{
+			// unregister
+			if (mRegHandle.isValid())
+			{
+				mRegHandle->end();
+			}
+
+			// end any subscriptions
+			if (mServerSubscriptionHandle.isValid())
+			{
+				mServerSubscriptionHandle->end();
+			}
+			if (mClientSubscriptionHandle.isValid())
+			{
+				mClientSubscriptionHandle->end();
+			}
+
+			// End all calls - copy list in case delete/unregister of call is immediate
+			std::set<BasicClientCall*> tempCallList = mCallList;
+			std::set<BasicClientCall*>::iterator it = tempCallList.begin();
+			for (; it != tempCallList.end(); it++)
+			{
+				(*it)->terminateCall();
+			}
+
+			mDum->shutdown(this);
+		}
+	}
+}
+
+void BasicClientUserAgent::start(const char * url, const char * passwd, int rtpPort, int localPort)
+{
+	stop();
+
+	mLocalPort = localPort;
+	mRtpPort = rtpPort;
+	mAor = Uri(url);
+	mPassword = passwd;
+
+	setupProfile();
+
+	mDumShutdownRequested = false;
+
+	mStack->run();
+	mStackThread->run(); 
+
+	this->run();
+
+}
+
+void
+BasicClientUserAgent::stop()
+{
+   assert(mDum);
+
+   mDumShutdownRequested = true; // Set flag so that shutdown operations can be run in dum process thread
+
    mStack->shutdownAndJoinThreads();
    mStackThread->shutdown();
    mStackThread->join();
 
-   delete mDum;
-   delete mStack;
-   delete mStackThread;
-   delete mInterruptor;
-   delete mPollGrp;
-   // Note:  mStack descructor will delete mSecurity
+   this->shutdown();
+   this->join();
+
+   state_ = Undefined;
 }
 
-void
-BasicClientUserAgent::startup()
+bool resip::BasicClientUserAgent::openSession(const char * target)
 {
-   mStack->run();
-   mStackThread->run(); 
+	if (state_ != Idle)
+		return false;
 
-   if (mRegisterDuration)
-   {
-      InfoLog (<< "register for " << mAor);
-      mDum->send(mDum->makeRegistration(NameAddr(mAor)));
-   }
-   else
-   {
-      // If not registering then form subscription and/or call here.  If registering then we will start these
-      // after the registration is successful.
+	mCallTarget = Uri(target);
+    BasicClientCall* newCall = new BasicClientCall(*this);
+	newCall->initiateCall(mCallTarget, mProfile);
 
-      // Check if we should try to form a test subscription
-      if(!mSubscribeTarget.host().empty())
-      {
-         SharedPtr<SipMessage> sub = mDum->makeSubscription(NameAddr(mSubscribeTarget), mProfile, "basicClientTest");
-         mDum->send(sub);
-      }
-
-      // Check if we should try to form a test call
-      if(!mCallTarget.host().empty())
-      {
-         BasicClientCall* newCall = new BasicClientCall(*this);
-         newCall->initiateCall(mCallTarget, mProfile);
-      }
-   }
-}
-
-void
-BasicClientUserAgent::shutdown()
-{
-   assert(mDum);
-   mDumShutdownRequested = true; // Set flag so that shutdown operations can be run in dum process thread
-   mShuttingdown = true;  // This flag stays on during the shutdown process where as mDumShutdownRequested will get toggled back to false
-}
-
-bool
-BasicClientUserAgent::process(int timeoutMs)
-{
-   if(!mDumShutdown)
-   {
-      if(mDumShutdownRequested)
-      {
-         // unregister
-         if(mRegHandle.isValid())
-         {
-            mRegHandle->end();
-         }
-
-         // end any subscriptions
-         if(mServerSubscriptionHandle.isValid())
-         {
-            mServerSubscriptionHandle->end();
-         }
-         if(mClientSubscriptionHandle.isValid())
-         {
-            mClientSubscriptionHandle->end();
-         }
-
-         // End all calls - copy list in case delete/unregister of call is immediate
-         std::set<BasicClientCall*> tempCallList = mCallList;
-         std::set<BasicClientCall*>::iterator it = tempCallList.begin();
-         for(; it != tempCallList.end(); it++)
-         {
-            (*it)->terminateCall();
-         }
-
-         mDum->shutdown(this);
-         mDumShutdownRequested = false;
-      }
-      mDum->process(timeoutMs);
-      return true;
-   }
-   return false;
+	return true;
 }
 
 void
 BasicClientUserAgent::addTransport(TransportType type, int port)
 {
-   if(port == 0) return;  // Transport disabled
+	if (mTransport != NULL && mTransport->port() == port)
+		return;
 
-   for (int i=0; i < 10; ++i)
-   {
-      try
-      {
-         if (!mNoV4)
-         {
-            mStack->addTransport(type, port+i, V4, StunEnabled, Data::Empty, mTlsDomain);
-            return;
-         }
+	if (mTransport != NULL)
+	{
+		mStack->removeTransport(mTransport->getKey());
+		mTransport = NULL;
+	}
 
-         if (mEnableV6)
-         {
-            mStack->addTransport(type, port+i, V6, StunEnabled, Data::Empty, mTlsDomain);
+	if(port == 0) 
+		return;  // Transport disabled
+
+	for (int i=0; i < 10; ++i)
+	{
+		try
+		{
+			mTransport = mStack->addTransport(type, port+i);
             return;
-         }
-      }
-      catch (BaseException& e)
-      {
-         InfoLog (<< "Caught: " << e);
-         WarningLog (<< "Failed to add " << Tuple::toData(type) << " transport on " << port);
-      }
-   }
+		}
+		catch (BaseException& e)
+		{
+			InfoLog (<< "Caught: " << e);
+			WarningLog (<< "Failed to add " << Tuple::toData(type) << " transport on " << port);
+		}
+	}
    throw Transport::Exception("Port already in use", __FILE__, __LINE__);
 }
 
-void 
+void
 BasicClientUserAgent::post(Message* msg)
 {
    ConnectionTerminated* terminated = dynamic_cast<ConnectionTerminated*>(msg);
@@ -528,26 +512,15 @@ void
 BasicClientUserAgent::onSuccess(ClientRegistrationHandle h, const SipMessage& msg)
 {
    InfoLog(<< "onSuccess(ClientRegistrationHandle): msg=" << msg.brief());
-   if(mShuttingdown)
+   if(mDumShutdownRequested)
    {
        h->end();
        return;
    }
    if(mRegHandle.getId() == 0)  // Note: reg handle id will only be 0 on first successful registration
    {
-      // Check if we should try to form a test subscription
-      if(!mSubscribeTarget.host().empty())
-      {
-         SharedPtr<SipMessage> sub = mDum->makeSubscription(NameAddr(mSubscribeTarget), mProfile, "basicClientTest");
-         mDum->send(sub);
-      }
-
-      // Check if we should try to form a test call
-      if(!mCallTarget.host().empty())
-      {
-         BasicClientCall* newCall = new BasicClientCall(*this);
-         newCall->initiateCall(mCallTarget, mProfile);
-      }
+	   if (Undefined == state_)
+		   state_ = Idle;
    }
    mRegHandle = h;
    mRegistrationRetryDelayTime = 0;  // reset
@@ -558,7 +531,7 @@ BasicClientUserAgent::onFailure(ClientRegistrationHandle h, const SipMessage& ms
 {
    InfoLog(<< "onFailure(ClientRegistrationHandle): msg=" << msg.brief());
    mRegHandle = h;
-   if(mShuttingdown)
+   if(mDumShutdownRequested)
    {
        h->end();
    }
@@ -575,7 +548,7 @@ int
 BasicClientUserAgent::onRequestRetry(ClientRegistrationHandle h, int retryMinimum, const SipMessage& msg)
 {
    mRegHandle = h;
-   if(mShuttingdown)
+   if(mDumShutdownRequested)
    {
        return -1;
    }

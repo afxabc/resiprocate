@@ -19,6 +19,9 @@
 
 CGUISipClientDlg::CGUISipClientDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_GUISIPCLIENT_DIALOG, pParent)
+	, mLocalUri(_T("sip:1000@10.10.3.202"))
+	, mPasswd(_T("1234"))
+	, mTargetUri(_T("sip:9664@10.10.3.202"))
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -26,11 +29,16 @@ CGUISipClientDlg::CGUISipClientDlg(CWnd* pParent /*=NULL*/)
 void CGUISipClientDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
+	DDX_Text(pDX, IDC_LOCAL_URI, mLocalUri);
+	DDX_Text(pDX, IDC_PASSWD, mPasswd);
+	DDX_Text(pDX, IDC_TARGET_URI, mTargetUri);
 }
 
 BEGIN_MESSAGE_MAP(CGUISipClientDlg, CDialogEx)
 	ON_WM_PAINT()
 	ON_WM_QUERYDRAGICON()
+	ON_BN_CLICKED(IDC_REGISTER, &CGUISipClientDlg::OnBnClickedRegister)
+	ON_BN_CLICKED(IDC_CALL, &CGUISipClientDlg::OnBnClickedCall)
 END_MESSAGE_MAP()
 
 
@@ -46,7 +54,7 @@ BOOL CGUISipClientDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
-	resip::Log::initialize("cout", "INFO", "XXXX");
+	resip::Log::initialize("cout", "INFO", "GUISipClient");
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -87,3 +95,21 @@ HCURSOR CGUISipClientDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
+void CGUISipClientDlg::OnBnClickedRegister()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	UpdateData();
+
+	USES_CONVERSION;
+	agent_.start(W2A(mLocalUri), W2A(mPasswd), 7788);
+}
+
+
+void CGUISipClientDlg::OnBnClickedCall()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	UpdateData();
+
+	USES_CONVERSION;
+	agent_.openSession(W2A(mTargetUri));
+}
