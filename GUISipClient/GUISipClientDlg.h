@@ -40,4 +40,6 @@ public:
 	afx_msg void OnBnClickedRegister();
 	afx_msg void OnBnClickedCall();
 	CString mTargetUri;
+	afx_msg void OnBnClickedHangup();
+	afx_msg void OnBnClickedAccept();
 };

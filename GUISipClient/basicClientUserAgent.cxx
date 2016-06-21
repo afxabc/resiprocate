@@ -305,7 +305,6 @@ void resip::BasicClientUserAgent::thread()
 	mShutdown = false;
 	while (!mShutdown)
 	{
-		mDum->process(100);
 		if (mDumShutdownRequested)
 		{
 			// unregister
@@ -334,6 +333,7 @@ void resip::BasicClientUserAgent::thread()
 
 			mDum->shutdown(this);
 		}
+		mDum->process(100);
 	}
 }
 
@@ -364,12 +364,12 @@ BasicClientUserAgent::stop()
 
    mDumShutdownRequested = true; // Set flag so that shutdown operations can be run in dum process thread
 
+   this->shutdown();
+   this->join();
+
    mStack->shutdownAndJoinThreads();
    mStackThread->shutdown();
    mStackThread->join();
-
-   this->shutdown();
-   this->join();
 
    state_ = Undefined;
 }
@@ -381,9 +381,29 @@ bool resip::BasicClientUserAgent::openSession(const char * target)
 
 	mCallTarget = Uri(target);
     BasicClientCall* newCall = new BasicClientCall(*this);
-	newCall->initiateCall(mCallTarget, mProfile);
+	newCall->initiateCall(mCallTarget, mRtpPort, mProfile);
 
 	return true;
+}
+
+void resip::BasicClientUserAgent::closeSession()
+{
+	// End all calls - copy list in case delete/unregister of call is immediate
+	std::set<BasicClientCall*> tempCallList = mCallList;
+	std::set<BasicClientCall*>::iterator it = tempCallList.begin();
+	for (; it != tempCallList.end(); it++)
+	{
+		(*it)->terminateCall();
+	}
+}
+
+void resip::BasicClientUserAgent::acceptSession()
+{
+	std::set<BasicClientCall*>::iterator it = mCallList.begin();
+	if (it != mCallList.end())
+	{
+		(*it)->acceptCall(mRtpPort);
+	}
 }
 
 void
@@ -460,6 +480,7 @@ BasicClientUserAgent::onCallTimeout(BasicClientCall* call)
    {
       call->timerExpired();
    }
+   /*
    else  // call no longer exists
    {
       // If there are no more calls, then start a new one
@@ -469,7 +490,7 @@ BasicClientUserAgent::onCallTimeout(BasicClientCall* call)
          BasicClientCall* newCall = new BasicClientCall(*this);
          newCall->initiateCall(mCallTarget, mProfile);
       }
-   }
+   }*/
 }
 
 void 
@@ -511,19 +532,19 @@ BasicClientUserAgent::onDumCanBeDeleted()
 void 
 BasicClientUserAgent::onSuccess(ClientRegistrationHandle h, const SipMessage& msg)
 {
-   InfoLog(<< "onSuccess(ClientRegistrationHandle): msg=" << msg.brief());
-   if(mDumShutdownRequested)
-   {
-       h->end();
-       return;
-   }
-   if(mRegHandle.getId() == 0)  // Note: reg handle id will only be 0 on first successful registration
-   {
-	   if (Undefined == state_)
-		   state_ = Idle;
-   }
-   mRegHandle = h;
-   mRegistrationRetryDelayTime = 0;  // reset
+	InfoLog(<< "onSuccess(ClientRegistrationHandle): msg=" << msg.brief());
+	if(mDumShutdownRequested)
+	{
+		h->end();
+		return;
+	}
+	if(mRegHandle.getId() == 0)  // Note: reg handle id will only be 0 on first successful registration
+	{
+	}
+	mRegHandle = h;
+	mRegistrationRetryDelayTime = 0;  // reset
+	if (Undefined == state_)
+		state_ = Idle;
 }
 
 void
@@ -576,18 +597,21 @@ void
 BasicClientUserAgent::onNewSession(ClientInviteSessionHandle h, InviteSession::OfferAnswerType oat, const SipMessage& msg)
 {
    dynamic_cast<BasicClientCall *>(h->getAppDialogSet().get())->onNewSession(h, oat, msg);
+   state_ = CallerStart;
 }
 
 void
 BasicClientUserAgent::onNewSession(ServerInviteSessionHandle h, InviteSession::OfferAnswerType oat, const SipMessage& msg)
 {
    dynamic_cast<BasicClientCall *>(h->getAppDialogSet().get())->onNewSession(h, oat, msg);
+   state_ = CalleeStart;
 }
 
 void
 BasicClientUserAgent::onFailure(ClientInviteSessionHandle h, const SipMessage& msg)
 {
    dynamic_cast<BasicClientCall *>(h->getAppDialogSet().get())->onFailure(h, msg);
+   state_ = Idle;
 }
 
 void
@@ -606,12 +630,14 @@ void
 BasicClientUserAgent::onConnected(ClientInviteSessionHandle h, const SipMessage& msg)
 {
    dynamic_cast<BasicClientCall *>(h->getAppDialogSet().get())->onConnected(h, msg);
+   state_ = Connected;
 }
 
 void
 BasicClientUserAgent::onConnected(InviteSessionHandle h, const SipMessage& msg)
 {
    dynamic_cast<BasicClientCall *>(h->getAppDialogSet().get())->onConnected(h, msg);
+   state_ = Connected;
 }
 
 void
@@ -624,6 +650,7 @@ void
 BasicClientUserAgent::onTerminated(InviteSessionHandle h, InviteSessionHandler::TerminatedReason reason, const SipMessage* msg)
 {
    dynamic_cast<BasicClientCall *>(h->getAppDialogSet().get())->onTerminated(h, reason, msg);
+   state_ = Idle;
 }
 
 void

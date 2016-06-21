@@ -20,9 +20,11 @@ public:
    BasicClientCall(BasicClientUserAgent& userAgent);
    virtual ~BasicClientCall();
    
-   virtual void initiateCall(const Uri& target, SharedPtr<UserProfile> profile);
+   virtual void initiateCall(const Uri& target, int rtpport, SharedPtr<UserProfile> profile);
    virtual void terminateCall();
    virtual void timerExpired();
+
+   void acceptCall(int rtpport);
 
 protected:
    friend class BasicClientUserAgent;
@@ -77,19 +79,22 @@ protected:
    // RedirectHandler /////////////////////////////////////////////////////////////
    virtual void onRedirectReceived(AppDialogSetHandle h, const SipMessage& msg);
 
-private:       
-   BasicClientUserAgent &mUserAgent;
-   resip::InviteSessionHandle mInviteSessionHandle;
-   unsigned int mTimerExpiredCounter;
-   bool mPlacedCall;
-   resip::InviteSessionHandle mInviteSessionHandleReplaced;
+private:
+	SdpContents::Session::Medium mLocalMedium;
+	SdpContents::Session::Medium mRemoteMedium;
+	BasicClientUserAgent &mUserAgent;
+	resip::InviteSessionHandle mInviteSessionHandle;
+	unsigned int mTimerExpiredCounter;
+	bool mPlacedCall;
+	resip::InviteSessionHandle mInviteSessionHandleReplaced;
 
-   // UAC forked call handling helper members
-   bool isUACConnected();
-   bool isStaleFork(const resip::DialogId& dialogId);
-   resip::DialogId mUACConnectedDialogId;
+	// UAC forked call handling helper members
+	bool isUACConnected();
+	bool isStaleFork(const resip::DialogId& dialogId);
+	resip::DialogId mUACConnectedDialogId;
 
-   void makeOffer(SdpContents& offer);
+	void makeOffer(SdpContents& offer, int rtpport = -1, int payload = -1);
+	void getRemoteOffer(const SdpContents& sdp);
 };
  
 }

@@ -38,8 +38,10 @@ public:
 
    void start(const char* url, const char* passwd, int rtpPort, int localPort = 12001);
    void stop();
-   
+
    bool openSession(const char* target);
+   void closeSession();
+   void acceptSession();
 
    DialogUsageManager& getDialogUsageManager() { return *mDum; }
    SharedPtr<UserProfile> getIncomingUserProfile(const SipMessage& msg) { return mProfile; } // This test program only uses the one global Master Profile - just return it

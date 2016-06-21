@@ -52,14 +52,24 @@ class CallTimer : public resip::DumCommand
 };
 }
 
-BasicClientCall::BasicClientCall(BasicClientUserAgent& userAgent) 
-: AppDialogSet(userAgent.getDialogUsageManager()),
-  mUserAgent(userAgent),
-  mTimerExpiredCounter(0),
-  mPlacedCall(false),
-  mUACConnectedDialogId(Data::Empty, Data::Empty, Data::Empty)
+BasicClientCall::BasicClientCall(BasicClientUserAgent& userAgent) : 
+	AppDialogSet(userAgent.getDialogUsageManager()),
+	mLocalMedium(Symbols::audio, 0, 1, Symbols::RTP_AVP),
+	mRemoteMedium(Symbols::audio, 0, 1, Symbols::RTP_AVP),
+	mUserAgent(userAgent),
+	mTimerExpiredCounter(0),
+	mPlacedCall(false),
+	mUACConnectedDialogId(Data::Empty, Data::Empty, Data::Empty)
 {
-   mUserAgent.registerCall(this);
+	mUserAgent.registerCall(this);
+
+	mLocalMedium.addCodec(SdpContents::Session::Codec::ULaw_8000);
+	mLocalMedium.addCodec(SdpContents::Session::Codec::ALaw_8000);
+	mLocalMedium.addCodec(SdpContents::Session::Codec::G729_8000);
+	mLocalMedium.addCodec(SdpContents::Session::Codec::TelephoneEvent);
+
+	mLocalMedium.addAttribute("fmtp", "101 0-15");
+	mLocalMedium.addAttribute("sendrecv");
 }
 
 BasicClientCall::~BasicClientCall()
@@ -67,15 +77,104 @@ BasicClientCall::~BasicClientCall()
    mUserAgent.unregisterCall(this);
 }
 
-void 
-BasicClientCall::initiateCall(const Uri& target, SharedPtr<UserProfile> profile)
+void
+BasicClientCall::makeOffer(SdpContents& offer, int rtpport, int payload)
 {
-   SdpContents offer;
-   makeOffer(offer);
-   SharedPtr<SipMessage> invite = mUserAgent.getDialogUsageManager().makeInviteSession(NameAddr(target), profile, &offer, this);
-   mUserAgent.getDialogUsageManager().send(invite);
-   mPlacedCall = true;
+	static Data txt("v=0\r\n"
+		"o=- 0 0 IN IP4 0.0.0.0\r\n"
+		"s=basicClient\r\n"
+		"c=IN IP4 0.0.0.0\r\n"
+		"t=0 0\r\n");
+
+	static HeaderFieldValue hfv(txt.data(), txt.size());
+	static Mime type("application", "sdp");
+	static SdpContents offerSdp(hfv, type);
+
+	SdpContents::Session::Medium medium(Symbols::audio, mLocalMedium.port(), 1, Symbols::RTP_AVP);
+	if (rtpport > 0)
+		medium.setPort(rtpport);
+
+	std::list<SdpContents::Session::Codec> codecs = mLocalMedium.codecs();
+	std::list<SdpContents::Session::Codec>::iterator it = codecs.begin();
+	while (it != codecs.end())
+	{
+		if (payload >= 0)
+		{
+			if (payload == it->payloadType())
+			{
+				medium.addCodec(*it);
+				break;
+			}
+		}
+		else medium.addCodec(*it);
+	}
+
+	offerSdp.session().addMedium(medium);
+
+	// Set sessionid and version for this offer
+	UInt64 currentTime = Timer::getTimeMicroSec();
+	offerSdp.session().origin().getSessionId() = currentTime;
+	offerSdp.session().origin().getVersion() = currentTime;
+
+	offer = offerSdp;
 }
+
+void 
+BasicClientCall::initiateCall(const Uri& target, int rtpport, SharedPtr<UserProfile> profile)
+{
+	mLocalMedium.port() = rtpport;
+	
+	SdpContents offerSdp;
+	makeOffer(offerSdp, rtpport);
+
+	SharedPtr<SipMessage> invite = mUserAgent.getDialogUsageManager().makeInviteSession(NameAddr(target), profile, &offerSdp, this);
+	mUserAgent.getDialogUsageManager().send(invite);
+	mPlacedCall = true;
+}
+
+void resip::BasicClientCall::acceptCall(int rtpport)
+{
+	if (!mInviteSessionHandle.isValid())
+		return;
+
+	ServerInviteSession* uas = dynamic_cast<ServerInviteSession*>(mInviteSessionHandle.get());
+	if (!uas || uas->isAccepted())
+		return;
+
+	mLocalMedium.port() = rtpport;
+	int payload = -1;
+	std::list<SdpContents::Session::Codec> codecs = mRemoteMedium.codecs();
+	std::list<SdpContents::Session::Codec>::iterator it = codecs.begin();
+	if (it != codecs.end())
+	{
+		payload = it->payloadType();
+	}
+	SdpContents answerSdp;
+	makeOffer(answerSdp, rtpport, payload);
+
+	// Provide Answer here - for test client just echo back same SDP as received for now
+	mInviteSessionHandle->provideAnswer(answerSdp);
+	uas->accept();
+}
+
+void resip::BasicClientCall::getRemoteOffer(const SdpContents & sdp)
+{
+	for (list<SdpContents::Session::Medium>::const_iterator i = sdp.session().media().begin();
+		i != sdp.session().media().end(); ++i)
+	{
+		if (i->name() == Symbols::audio)
+		{
+			mRemoteMedium.setPort(i->port());
+			mRemoteMedium.clearCodecs();
+			SdpContents::Session::Codec incode = mLocalMedium.findFirstMatchingCodecs(*i);
+			if (incode.payloadType() >= 0)
+				mRemoteMedium.addCodec(incode);
+			break;
+		}
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////
 
 void 
 BasicClientCall::terminateCall()
@@ -123,31 +222,6 @@ bool
 BasicClientCall::isStaleFork(const DialogId& dialogId)
 {
    return (!mUACConnectedDialogId.getCallId().empty() && dialogId != mUACConnectedDialogId);
-}
-
-void 
-BasicClientCall::makeOffer(SdpContents& offer)
-{
-   static Data txt("v=0\r\n"
-                   "o=- 0 0 IN IP4 0.0.0.0\r\n"
-                   "s=basicClient\r\n"
-                   "c=IN IP4 0.0.0.0\r\n"  
-                   "t=0 0\r\n"
-                   "m=audio 8000 RTP/AVP 0 101\r\n"
-                   "a=rtpmap:0 pcmu/8000\r\n"
-                   "a=rtpmap:101 telephone-event/8000\r\n"
-                   "a=fmtp:101 0-15\r\n");
-
-   static HeaderFieldValue hfv(txt.data(), txt.size());
-   static Mime type("application", "sdp");
-   static SdpContents offerSdp(hfv, type);
-
-   offer = offerSdp;
-
-   // Set sessionid and version for this offer
-   UInt64 currentTime = Timer::getTimeMicroSec();
-   offer.session().origin().getSessionId() = currentTime;
-   offer.session().origin().getVersion() = currentTime;  
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -352,13 +426,15 @@ BasicClientCall::onRedirected(ClientInviteSessionHandle h, const SipMessage& msg
 void
 BasicClientCall::onAnswer(InviteSessionHandle h, const SipMessage& msg, const SdpContents& sdp)
 {
-   if(isStaleFork(h->getDialogId()))
-   {
-      // If we receive a response from a stale fork (ie. after someone sends a 200), then we want to ignore it
-      InfoLog(<< "onAnswer: from stale fork, msg=" << msg.brief() << ", sdp=" << sdp);
-      return;
-   }
-   InfoLog(<< "onAnswer: msg=" << msg.brief() << ", sdp=" << sdp);
+	getRemoteOffer(sdp);
+
+	if(isStaleFork(h->getDialogId()))
+	{
+		// If we receive a response from a stale fork (ie. after someone sends a 200), then we want to ignore it
+		InfoLog(<< "onAnswer: from stale fork, msg=" << msg.brief() << ", sdp=" << sdp);
+		return;
+	}
+	InfoLog(<< "onAnswer: msg=" << msg.brief() << ", sdp=" << sdp);
 
    // Process Answer here
 }
@@ -374,12 +450,15 @@ BasicClientCall::onOffer(InviteSessionHandle h, const SipMessage& msg, const Sdp
    }
    InfoLog(<< "onOffer: msg=" << msg.brief() << ", sdp=" << sdp);
 
-   // Provide Answer here - for test client just echo back same SDP as received for now
-   h->provideAnswer(sdp);
+   //////////////////////////////////////////////
+
+   getRemoteOffer(sdp);
+
    ServerInviteSession* uas = dynamic_cast<ServerInviteSession*>(h.get());
    if(uas && !uas->isAccepted())
    {
-      uas->accept();
+      uas->provisional(180);
+//	  uas->reject(400);
    }
 }
 

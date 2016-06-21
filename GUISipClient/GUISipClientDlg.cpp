@@ -19,7 +19,7 @@
 
 CGUISipClientDlg::CGUISipClientDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_GUISIPCLIENT_DIALOG, pParent)
-	, mLocalUri(_T("sip:1000@10.10.3.202"))
+	, mLocalUri(_T("sip:1001@10.10.3.202"))
 	, mPasswd(_T("1234"))
 	, mTargetUri(_T("sip:9664@10.10.3.202"))
 {
@@ -39,6 +39,8 @@ BEGIN_MESSAGE_MAP(CGUISipClientDlg, CDialogEx)
 	ON_WM_QUERYDRAGICON()
 	ON_BN_CLICKED(IDC_REGISTER, &CGUISipClientDlg::OnBnClickedRegister)
 	ON_BN_CLICKED(IDC_CALL, &CGUISipClientDlg::OnBnClickedCall)
+	ON_BN_CLICKED(IDC_HANGUP, &CGUISipClientDlg::OnBnClickedHangup)
+	ON_BN_CLICKED(IDC_ACCEPT, &CGUISipClientDlg::OnBnClickedAccept)
 END_MESSAGE_MAP()
 
 
@@ -112,4 +114,18 @@ void CGUISipClientDlg::OnBnClickedCall()
 
 	USES_CONVERSION;
 	agent_.openSession(W2A(mTargetUri));
+}
+
+
+void CGUISipClientDlg::OnBnClickedHangup()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	agent_.closeSession();
+}
+
+
+void CGUISipClientDlg::OnBnClickedAccept()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	agent_.acceptSession();
 }
