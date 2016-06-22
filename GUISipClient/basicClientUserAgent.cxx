@@ -113,7 +113,7 @@ class NotifyTimer : public resip::DumCommand
 
 BasicClientUserAgent::BasicClientUserAgent() :
 	state_(Undefined),
-	mLocalPort(0),
+	mSipPort(0),
 	mRegisterDuration(3600),
 	mTransport(NULL),
 	mOutboundEnabled(false),
@@ -168,7 +168,7 @@ BasicClientUserAgent::~BasicClientUserAgent()
 
 void resip::BasicClientUserAgent::setupProfile()
 {
-	addTransport(UDP, mLocalPort);
+	addTransport(UDP, mSipPort);
 
 	// Disable Statistics Manager
 	mStack->statisticsManagerEnabled() = false;
@@ -186,7 +186,7 @@ void resip::BasicClientUserAgent::setupProfile()
 	//mProfile->addSupportedMethod(UPDATE);
 	mProfile->addSupportedMethod(INFO);
 	mProfile->addSupportedMethod(MESSAGE);
-	mProfile->addSupportedMethod(PRACK);
+	//mProfile->addSupportedMethod(PRACK);
 	//mProfile->addSupportedOptionTag(Token(Symbols::C100rel));  // Automatically added when using setUacReliableProvisionalMode
 	mProfile->setUacReliableProvisionalMode(MasterProfile::Supported);
 	mProfile->setUasReliableProvisionalMode(MasterProfile::SupportedEssential);
@@ -299,9 +299,6 @@ void resip::BasicClientUserAgent::setupProfile()
 
 void resip::BasicClientUserAgent::thread()
 {
-	InfoLog(<< "register for " << mAor);
-	mDum->send(mDum->makeRegistration(NameAddr(mAor)));
-
 	mShutdown = false;
 	while (!mShutdown)
 	{
@@ -333,16 +330,24 @@ void resip::BasicClientUserAgent::thread()
 
 			mDum->shutdown(this);
 		}
-		mDum->process(100);
+		else
+		{
+			mDum->process(100);
+			checkForRcc();
+		}
 	}
 }
 
-void BasicClientUserAgent::start(const char * url, const char * passwd, int rtpPort, int localPort)
+bool BasicClientUserAgent::start(const char * url, const char * passwd, const char * rccIP, int rccPort, int sipPort)
 {
 	stop();
 
-	mLocalPort = localPort;
-	mRtpPort = rtpPort;
+	if (!mRccAgent.startAgent(inet_addr(rccIP), rccPort))
+		return false;
+	
+	mRtpPort = rccPort + 1;
+
+	mSipPort = sipPort;
 	mAor = Uri(url);
 	mPassword = passwd;
 
@@ -355,6 +360,7 @@ void BasicClientUserAgent::start(const char * url, const char * passwd, int rtpP
 
 	this->run();
 
+	return true;
 }
 
 void
@@ -372,6 +378,42 @@ BasicClientUserAgent::stop()
    mStackThread->join();
 
    state_ = Undefined;
+
+   mRccAgent.stopAgent();
+}
+
+void resip::BasicClientUserAgent::checkForRcc()
+{
+	if (!mRccAgent.isValid())
+		return;
+
+	static char data[1024];
+	RccMessage* msg = (RccMessage*)data;
+	int sz = mRccAgent.getMessage(msg, 1024);
+	if (sz <= 0)
+		return;
+
+	switch (msg->mType)
+	{
+	case RccMessage::CALL_REGISTER:
+		registerSession();
+		break;
+	case RccMessage::CALL_INVITE:
+		openSession(msg->mData);
+		break;
+	case RccMessage::CALL_CLOSE:
+		closeSession();
+		break;
+	case RccMessage::CALL_ACCEPT:
+		acceptSession();
+		break;
+	}
+}
+
+void resip::BasicClientUserAgent::registerSession()
+{
+	InfoLog(<< "register for " << mAor);
+	mDum->send(mDum->makeRegistration(NameAddr(mAor)));
 }
 
 bool resip::BasicClientUserAgent::openSession(const char * target)
@@ -379,7 +421,19 @@ bool resip::BasicClientUserAgent::openSession(const char * target)
 	if (state_ != Idle)
 		return false;
 
-	mCallTarget = Uri(target);
+	Data sToURI(target);
+	int pos = sToURI.find("sip:");
+	if (pos < 0)
+		sToURI = Data("sip:") + sToURI;
+	pos = sToURI.find("@");
+	if (pos < 0)
+	{
+		Data aor = mAor.getAOR(false);
+		int p = aor.find("@");
+		sToURI = sToURI + aor.substr(p);
+	}
+		
+	mCallTarget = Uri(sToURI);
     BasicClientCall* newCall = new BasicClientCall(*this);
 	newCall->initiateCall(mCallTarget, mRtpPort, mProfile);
 
@@ -399,6 +453,9 @@ void resip::BasicClientUserAgent::closeSession()
 
 void resip::BasicClientUserAgent::acceptSession()
 {
+	if (state_ != CalleeStart)
+		return;
+
 	std::set<BasicClientCall*>::iterator it = mCallList.begin();
 	if (it != mCallList.end())
 	{

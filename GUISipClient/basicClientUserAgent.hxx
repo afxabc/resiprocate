@@ -16,8 +16,12 @@
 #include "resip/dum/Postable.hxx"
 #include "rutil/ThreadIf.hxx"
 
+#include "queue.h"
+#include "RccUserAgent.h"
+
 namespace resip
 {
+
 class BasicClientCall;
 class FdPollGrp;
 
@@ -36,9 +40,11 @@ public:
    BasicClientUserAgent();
    virtual ~BasicClientUserAgent();
 
-   void start(const char* url, const char* passwd, int rtpPort, int localPort = 12001);
+   bool start(const char* url, const char* passwd, const char * rccIP, int rccPort, int sipPort = 12001);
    void stop();
 
+   void checkForRcc();
+   void registerSession();
    bool openSession(const char* target);
    void closeSession();
    void acceptSession();
@@ -173,7 +179,8 @@ private:
 
 private:
 	CallState state_;
-	int mLocalPort;
+	int mSipPort;
+//	int mRccPort;
 	int mRtpPort;
 
 	int mRegisterDuration;
@@ -188,7 +195,7 @@ private:
 	Uri mSubscribeTarget;
 	Uri mCallTarget;
 
-
+	RccUserAgent mRccAgent;
 };
  
 }

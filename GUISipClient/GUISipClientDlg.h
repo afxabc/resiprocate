@@ -34,6 +34,8 @@ protected:
 
 private:
 	resip::BasicClientUserAgent agent_;
+	RccUserAgent rccAgent_;
+
 public:
 	CString mLocalUri;
 	CString mPasswd;
@@ -42,4 +44,6 @@ public:
 	CString mTargetUri;
 	afx_msg void OnBnClickedHangup();
 	afx_msg void OnBnClickedAccept();
+	afx_msg void OnBnClickedAgentStart();
+	afx_msg void OnBnClickedAgentStop();
 };

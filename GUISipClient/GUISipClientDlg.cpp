@@ -41,6 +41,8 @@ BEGIN_MESSAGE_MAP(CGUISipClientDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_CALL, &CGUISipClientDlg::OnBnClickedCall)
 	ON_BN_CLICKED(IDC_HANGUP, &CGUISipClientDlg::OnBnClickedHangup)
 	ON_BN_CLICKED(IDC_ACCEPT, &CGUISipClientDlg::OnBnClickedAccept)
+	ON_BN_CLICKED(IDC_AGENT_START, &CGUISipClientDlg::OnBnClickedAgentStart)
+	ON_BN_CLICKED(IDC_AGENT_STOP, &CGUISipClientDlg::OnBnClickedAgentStop)
 END_MESSAGE_MAP()
 
 
@@ -57,6 +59,7 @@ BOOL CGUISipClientDlg::OnInitDialog()
 
 	// TODO: 在此添加额外的初始化代码
 	resip::Log::initialize("cout", "INFO", "GUISipClient");
+	resip::initNetwork();
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -97,15 +100,29 @@ HCURSOR CGUISipClientDlg::OnQueryDragIcon()
 	return static_cast<HCURSOR>(m_hIcon);
 }
 
-void CGUISipClientDlg::OnBnClickedRegister()
+void CGUISipClientDlg::OnBnClickedAgentStart()
 {
 	// TODO: 在此添加控件通知处理程序代码
 	UpdateData();
 
 	USES_CONVERSION;
-	agent_.start(W2A(mLocalUri), W2A(mPasswd), 7788);
+	agent_.start(W2A(mLocalUri), W2A(mPasswd), "0.0.0.0", 7788);
+	rccAgent_.startAgent(inet_addr("0.0.0.0"), 7799, inet_addr("127.0.0.1"), 7788);
 }
 
+
+void CGUISipClientDlg::OnBnClickedAgentStop()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	agent_.stop();
+	rccAgent_.stopAgent();
+}
+
+void CGUISipClientDlg::OnBnClickedRegister()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	rccAgent_.sendMessage(RccMessage::CALL_REGISTER);
+}
 
 void CGUISipClientDlg::OnBnClickedCall()
 {
@@ -113,19 +130,18 @@ void CGUISipClientDlg::OnBnClickedCall()
 	UpdateData();
 
 	USES_CONVERSION;
-	agent_.openSession(W2A(mTargetUri));
+	rccAgent_.sendMessage(RccMessage::CALL_INVITE, W2A(mTargetUri));
 }
-
 
 void CGUISipClientDlg::OnBnClickedHangup()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	agent_.closeSession();
+	rccAgent_.sendMessage(RccMessage::CALL_CLOSE);
 }
-
 
 void CGUISipClientDlg::OnBnClickedAccept()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	agent_.acceptSession();
+	rccAgent_.sendMessage(RccMessage::CALL_ACCEPT);
 }
+

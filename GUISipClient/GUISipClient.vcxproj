@@ -90,7 +90,7 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
-      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
       <AdditionalIncludeDirectories>../</AdditionalIncludeDirectories>
     </ClCompile>
@@ -192,21 +192,28 @@
     <ClInclude Include="basicClientUserAgent.hxx" />
     <ClInclude Include="GUISipClient.h" />
     <ClInclude Include="GUISipClientDlg.h" />
+    <ClInclude Include="queue.h" />
+    <ClInclude Include="RccUserAgent.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="signal.h" />
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
+    <ClInclude Include="timestamp.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="basicClientCall.cxx" />
     <ClCompile Include="basicClientUserAgent.cxx" />
     <ClCompile Include="GUISipClient.cpp" />
     <ClCompile Include="GUISipClientDlg.cpp" />
+    <ClCompile Include="RccUserAgent.cpp" />
+    <ClCompile Include="signal.cpp" />
     <ClCompile Include="stdafx.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="timestamp.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="GUISipClient.rc" />
