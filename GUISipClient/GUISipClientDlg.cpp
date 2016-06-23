@@ -19,9 +19,10 @@
 
 CGUISipClientDlg::CGUISipClientDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_GUISIPCLIENT_DIALOG, pParent)
-	, mLocalUri(_T("sip:1001@10.10.3.202"))
+	, mSipHost(_T("10.10.3.202"))
 	, mPasswd(_T("1234"))
-	, mTargetUri(_T("sip:9664@10.10.3.202"))
+	, mTargetUri(_T("9664"))
+	, mLocalUri(_T("1001"))
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -29,9 +30,10 @@ CGUISipClientDlg::CGUISipClientDlg(CWnd* pParent /*=NULL*/)
 void CGUISipClientDlg::DoDataExchange(CDataExchange* pDX)
 {
 	CDialogEx::DoDataExchange(pDX);
-	DDX_Text(pDX, IDC_LOCAL_URI, mLocalUri);
+	DDX_Text(pDX, IDC_SIP_HOST, mSipHost);
 	DDX_Text(pDX, IDC_PASSWD, mPasswd);
 	DDX_Text(pDX, IDC_TARGET_URI, mTargetUri);
+	DDX_Text(pDX, IDC_LOCAL_URI, mLocalUri);
 }
 
 BEGIN_MESSAGE_MAP(CGUISipClientDlg, CDialogEx)
@@ -60,6 +62,7 @@ BOOL CGUISipClientDlg::OnInitDialog()
 	// TODO: 在此添加额外的初始化代码
 	resip::Log::initialize("cout", "INFO", "GUISipClient");
 	resip::initNetwork();
+	OnBnClickedAgentStart();
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -106,8 +109,8 @@ void CGUISipClientDlg::OnBnClickedAgentStart()
 	UpdateData();
 
 	USES_CONVERSION;
-	agent_.start(W2A(mLocalUri), W2A(mPasswd), "0.0.0.0", 7788);
-	rccAgent_.startAgent(inet_addr("0.0.0.0"), 7799, inet_addr("127.0.0.1"), 7788);
+	agent_.start(W2A(mSipHost), W2A(mPasswd), 7788);
+	rccAgent_.startAgent(7799, NULL, 7788, "10.10.3.100");
 }
 
 
@@ -121,7 +124,10 @@ void CGUISipClientDlg::OnBnClickedAgentStop()
 void CGUISipClientDlg::OnBnClickedRegister()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	rccAgent_.sendMessage(RccMessage::CALL_REGISTER);
+	UpdateData();
+
+	USES_CONVERSION;
+	rccAgent_.sendMessage(RccMessage::CALL_REGISTER, W2A(mLocalUri));
 }
 
 void CGUISipClientDlg::OnBnClickedCall()
@@ -130,7 +136,7 @@ void CGUISipClientDlg::OnBnClickedCall()
 	UpdateData();
 
 	USES_CONVERSION;
-	rccAgent_.sendMessage(RccMessage::CALL_INVITE, W2A(mTargetUri));
+	rccAgent_.sendMessage(RccMessage::CALL_INVITE, W2A(mTargetUri), "10.10.8.100", 12345, 0);
 }
 
 void CGUISipClientDlg::OnBnClickedHangup()

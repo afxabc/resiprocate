@@ -18,11 +18,18 @@ struct RccMessage
 		CALL_ACCEPT,
 		CALL_RING,
 		CALL_RINGBACK,
+		CALL_CONNECTED,
 		CALL_FAILED
 	};
 
+	RccMessage() : mSize(sizeof(RccMessage)) {}
+
 	MessageType mType;
-	char mData[1];
+	unsigned short mSize;
+	unsigned int mRtpIP;
+	unsigned short mRtpPort;
+	unsigned char mRtpPayload;
+	char mCallNum[1];
 }
 #ifndef WIN32
 __attribute__((packed))
@@ -39,13 +46,15 @@ public:
 	RccUserAgent();
 	~RccUserAgent();
 
-	bool startAgent(UInt32 localIP, unsigned short localPort, UInt32 targetIP = 0, unsigned short targetPort = 0);
+	bool startAgent(unsigned short localPort, const char* localIP = NULL, unsigned short targetPort = 0, const char* targetIP = NULL);
 	void stopAgent();
 
 	bool isValid() { return (mSocket != INVALID_SOCKET); }
 
+	bool sendMessage(const RccMessage& msg);
 	bool sendMessage(RccMessage::MessageType type);
-	bool sendMessage(RccMessage::MessageType type, const char* callNumber);
+	bool sendMessage(RccMessage::MessageType type, const char * callNumber);
+	bool sendMessage(RccMessage::MessageType type, const char * callNumber, const char* rtpIP, unsigned short rtpPort, int payload);
 	int getMessage(RccMessage* msg, int sz = sizeof(RccMessage));
 
 private:

@@ -81,7 +81,7 @@ void
 BasicClientCall::makeOffer(SdpContents& offer, int rtpport, int payload)
 {
 	static Data txt("v=0\r\n"
-		"o=- 0 0 IN IP4 0.0.0.0\r\n"
+		"o=- 0 0 IN IP4 1.1.2.2\r\n"
 		"s=basicClient\r\n"
 		"c=IN IP4 0.0.0.0\r\n"
 		"t=0 0\r\n");
@@ -107,6 +107,7 @@ BasicClientCall::makeOffer(SdpContents& offer, int rtpport, int payload)
 			}
 		}
 		else medium.addCodec(*it);
+		++it;
 	}
 
 	offerSdp.session().addMedium(medium);
@@ -120,19 +121,24 @@ BasicClientCall::makeOffer(SdpContents& offer, int rtpport, int payload)
 }
 
 void 
-BasicClientCall::initiateCall(const Uri& target, int rtpport, SharedPtr<UserProfile> profile)
+BasicClientCall::initiateCall(const Uri& target, unsigned short rtpport, UInt32 rtpip, SharedPtr<UserProfile> profile)
 {
 	mLocalMedium.port() = rtpport;
 	
 	SdpContents offerSdp;
 	makeOffer(offerSdp, rtpport);
 
+	struct in_addr addr;
+	memcpy(&addr, &rtpip, 4);
+	offerSdp.session().origin().setAddress(inet_ntoa(addr));
+	offerSdp.session().connection().setAddress(inet_ntoa(addr));
+
 	SharedPtr<SipMessage> invite = mUserAgent.getDialogUsageManager().makeInviteSession(NameAddr(target), profile, &offerSdp, this);
 	mUserAgent.getDialogUsageManager().send(invite);
 	mPlacedCall = true;
 }
 
-void resip::BasicClientCall::acceptCall(int rtpport)
+void resip::BasicClientCall::acceptCall(unsigned short rtpport, UInt32 rtpip)
 {
 	if (!mInviteSessionHandle.isValid())
 		return;
@@ -151,6 +157,11 @@ void resip::BasicClientCall::acceptCall(int rtpport)
 	}
 	SdpContents answerSdp;
 	makeOffer(answerSdp, rtpport, payload);
+
+	struct in_addr addr;
+	memcpy(&addr, &rtpip, 4);
+	answerSdp.session().origin().setAddress(inet_ntoa(addr));
+	answerSdp.session().connection().setAddress(inet_ntoa(addr));
 
 	// Provide Answer here - for test client just echo back same SDP as received for now
 	mInviteSessionHandle->provideAnswer(answerSdp);

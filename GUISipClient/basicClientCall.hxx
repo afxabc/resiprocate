@@ -20,11 +20,11 @@ public:
    BasicClientCall(BasicClientUserAgent& userAgent);
    virtual ~BasicClientCall();
    
-   virtual void initiateCall(const Uri& target, int rtpport, SharedPtr<UserProfile> profile);
+   virtual void initiateCall(const Uri& target, unsigned short rtpport, UInt32 rtpip, SharedPtr<UserProfile> profile);
    virtual void terminateCall();
    virtual void timerExpired();
 
-   void acceptCall(int rtpport);
+   void acceptCall(unsigned short rtpport, UInt32 rtpip);
 
 protected:
    friend class BasicClientUserAgent;

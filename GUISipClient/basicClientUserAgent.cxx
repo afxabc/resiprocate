@@ -83,8 +83,8 @@ public:
       if(sdp)  
       {
          // Fill in IP and Port from source
-         sdp->session().connection().setAddress(Tuple::inet_ntop(source), source.ipVersion() == V6 ? SdpContents::IP6 : SdpContents::IP4);
-         sdp->session().origin().setAddress(Tuple::inet_ntop(source), source.ipVersion() == V6 ? SdpContents::IP6 : SdpContents::IP4);
+ //        sdp->session().connection().setAddress(Tuple::inet_ntop(source), source.ipVersion() == V6 ? SdpContents::IP6 : SdpContents::IP4);
+//         sdp->session().origin().setAddress(Tuple::inet_ntop(source), source.ipVersion() == V6 ? SdpContents::IP6 : SdpContents::IP4);
          InfoLog( << "SdpMessageDecorator: src=" << source << ", dest=" << destination << ", msg=" << endl << msg.brief());
       }
    }
@@ -181,7 +181,7 @@ void resip::BasicClientUserAgent::setupProfile()
 	mProfile->addSupportedMethod(OPTIONS);
 	mProfile->addSupportedMethod(BYE);
 	//mProfile->addSupportedMethod(REFER);
-	mProfile->addSupportedMethod(NOTIFY);
+	//mProfile->addSupportedMethod(NOTIFY);
 	mProfile->addSupportedMethod(SUBSCRIBE);
 	//mProfile->addSupportedMethod(UPDATE);
 	mProfile->addSupportedMethod(INFO);
@@ -254,10 +254,12 @@ void resip::BasicClientUserAgent::setupProfile()
 	mProfile->setUserAgent("basicClient/1.0");
 	mProfile->setDefaultRegistrationTime(mRegisterDuration);
 	mProfile->setDefaultRegistrationRetryTime(120);
+	/*
 	if (!mContact.host().empty())
 	{
 		mProfile->setOverrideHostAndPort(mContact);
 	}
+	*/
 	if (!mOutboundProxy.host().empty())
 	{
 		mProfile->setOutboundProxy(Uri(mOutboundProxy));
@@ -265,9 +267,6 @@ void resip::BasicClientUserAgent::setupProfile()
 		mProfile->setExpressOutboundAsRouteSetEnabled(true);
 	}
 
-	// UserProfile Settings
-	mProfile->setDefaultFrom(NameAddr(mAor));
-	mProfile->setDigestCredential(mAor.host(), mAor.user(), mPassword);
 	// Generate InstanceId appropriate for testing only.  Should be UUID that persists 
 	// across machine re-starts and is unique to this applicaiton instance.  The one used 
 	// here is only as unique as the hostname of this machine.  If someone runs two 
@@ -338,17 +337,15 @@ void resip::BasicClientUserAgent::thread()
 	}
 }
 
-bool BasicClientUserAgent::start(const char * url, const char * passwd, const char * rccIP, int rccPort, int sipPort)
+bool BasicClientUserAgent::start(const char * sipHost, const char * passwd, unsigned short rccPort, const char * rccIP, unsigned short sipPort)
 {
 	stop();
 
-	if (!mRccAgent.startAgent(inet_addr(rccIP), rccPort))
+	if (!mRccAgent.startAgent(rccPort, rccIP))
 		return false;
 	
-	mRtpPort = rccPort + 1;
-
 	mSipPort = sipPort;
-	mAor = Uri(url);
+	mSipHost = sipHost;
 	mPassword = passwd;
 
 	setupProfile();
@@ -396,46 +393,55 @@ void resip::BasicClientUserAgent::checkForRcc()
 	switch (msg->mType)
 	{
 	case RccMessage::CALL_REGISTER:
-		registerSession();
+		registerSession(msg->mCallNum);
 		break;
 	case RccMessage::CALL_INVITE:
-		openSession(msg->mData);
+		openSession(msg->mCallNum, msg->mRtpPort, msg->mRtpIP);
 		break;
 	case RccMessage::CALL_CLOSE:
 		closeSession();
 		break;
 	case RccMessage::CALL_ACCEPT:
-		acceptSession();
+		acceptSession(msg->mRtpPort, msg->mRtpIP);
 		break;
 	}
 }
 
-void resip::BasicClientUserAgent::registerSession()
+Data resip::BasicClientUserAgent::makeValidUri(const char * uri)
 {
-	InfoLog(<< "register for " << mAor);
-	mDum->send(mDum->makeRegistration(NameAddr(mAor)));
-}
-
-bool resip::BasicClientUserAgent::openSession(const char * target)
-{
-	if (state_ != Idle)
-		return false;
-
-	Data sToURI(target);
+	Data sToURI(uri);
 	int pos = sToURI.find("sip:");
 	if (pos < 0)
 		sToURI = Data("sip:") + sToURI;
 	pos = sToURI.find("@");
 	if (pos < 0)
-	{
-		Data aor = mAor.getAOR(false);
-		int p = aor.find("@");
-		sToURI = sToURI + aor.substr(p);
-	}
+		sToURI = sToURI + "@" + mSipHost;
+	return sToURI;
+}
+
+void resip::BasicClientUserAgent::registerSession(const char* num)
+{
+	Data sToURI = makeValidUri(num);
+
+	NameAddr sipUri = NameAddr(Uri(sToURI));
+	// UserProfile Settings
+	mProfile->setDefaultFrom(sipUri);
+	mProfile->setDigestCredential(mSipHost, num, mPassword);
+
+	InfoLog(<< "register for " << sipUri);
+	mDum->send(mDum->makeRegistration(sipUri));
+}
+
+bool resip::BasicClientUserAgent::openSession(const char * num, unsigned short rtpPort, UInt32 rtpIP)
+{
+	if (state_ != Idle)
+		return false;
+
+	Data sToURI = makeValidUri(num);
 		
-	mCallTarget = Uri(sToURI);
+//	mCallTarget = Uri(sToURI);
     BasicClientCall* newCall = new BasicClientCall(*this);
-	newCall->initiateCall(mCallTarget, mRtpPort, mProfile);
+	newCall->initiateCall(Uri(sToURI), rtpPort, rtpIP, mProfile);
 
 	return true;
 }
@@ -451,7 +457,7 @@ void resip::BasicClientUserAgent::closeSession()
 	}
 }
 
-void resip::BasicClientUserAgent::acceptSession()
+void resip::BasicClientUserAgent::acceptSession(unsigned short rtpPort, UInt32 rtpIP)
 {
 	if (state_ != CalleeStart)
 		return;
@@ -459,7 +465,7 @@ void resip::BasicClientUserAgent::acceptSession()
 	std::set<BasicClientCall*>::iterator it = mCallList.begin();
 	if (it != mCallList.end())
 	{
-		(*it)->acceptCall(mRtpPort);
+		(*it)->acceptCall(rtpPort, rtpIP);
 	}
 }
 

@@ -37,7 +37,7 @@ private:
 	RccUserAgent rccAgent_;
 
 public:
-	CString mLocalUri;
+	CString mSipHost;
 	CString mPasswd;
 	afx_msg void OnBnClickedRegister();
 	afx_msg void OnBnClickedCall();
@@ -46,4 +46,5 @@ public:
 	afx_msg void OnBnClickedAccept();
 	afx_msg void OnBnClickedAgentStart();
 	afx_msg void OnBnClickedAgentStop();
+	CString mLocalUri;
 };

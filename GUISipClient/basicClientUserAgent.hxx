@@ -40,14 +40,14 @@ public:
    BasicClientUserAgent();
    virtual ~BasicClientUserAgent();
 
-   bool start(const char* url, const char* passwd, const char * rccIP, int rccPort, int sipPort = 12001);
+   bool start(const char* sipHost, const char* passwd, unsigned short rccPort, const char * rccIP = NULL, unsigned short sipPort = 12001);
    void stop();
 
    void checkForRcc();
-   void registerSession();
-   bool openSession(const char* target);
+   void registerSession(const char* num);
+   bool openSession(const char* target, unsigned short rtpPort, UInt32 rtpIP);
    void closeSession();
-   void acceptSession();
+   void acceptSession(unsigned short rtpPort, UInt32 rtpIP);
 
    DialogUsageManager& getDialogUsageManager() { return *mDum; }
    SharedPtr<UserProfile> getIncomingUserProfile(const SipMessage& msg) { return mProfile; } // This test program only uses the one global Master Profile - just return it
@@ -134,6 +134,7 @@ protected:
 
 	// Í¨¹ý ThreadIf ¼Ì³Ð
 	virtual void thread() override;
+	Data makeValidUri(const char* uri);
 
 protected:
    void addTransport(TransportType type, int port);
@@ -179,21 +180,19 @@ private:
 
 private:
 	CallState state_;
-	int mSipPort;
-//	int mRccPort;
-	int mRtpPort;
+
+	Data mSipHost;
+	unsigned short mSipPort;
+	Data mPassword;
 
 	int mRegisterDuration;
 
-	Uri mAor;
-	Data mPassword;
-
 	bool mOutboundEnabled;
 	Uri mOutboundProxy;
-	Uri mContact;
+//	Uri mContact;
 
 	Uri mSubscribeTarget;
-	Uri mCallTarget;
+//	Uri mCallTarget;
 
 	RccUserAgent mRccAgent;
 };

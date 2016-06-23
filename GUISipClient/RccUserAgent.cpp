@@ -16,18 +16,21 @@ RccUserAgent::~RccUserAgent()
 	stopAgent();
 }
 
-bool RccUserAgent::startAgent(UInt32 localIP, unsigned short localPort, UInt32 targetIP, unsigned short targetPort)
+bool RccUserAgent::startAgent(unsigned short localPort, const char* localIP, unsigned short targetPort, const char* targetIP)
 {
 	stopAgent();
 	
-	mSocket = openPort(localPort, localIP, false);
+	if (localIP != NULL)
+		mLocalIP = ntohl(inet_addr(localIP));
+	mLocalPort = localPort;
+
+	if (targetIP != NULL)
+		mTargetIP = ntohl(inet_addr(targetIP));
+	mTargetPort = targetPort;
+
+	mSocket = openPort(mLocalPort, mLocalIP, false);
 	if (mSocket == INVALID_SOCKET)
 		return false;
-
-	mLocalIP = localIP;
-	mLocalPort = localPort;
-	mTargetIP = targetIP;
-	mTargetPort = targetPort;
 
 	resip::makeSocketNonBlocking(mSocket);
 
@@ -36,16 +39,17 @@ bool RccUserAgent::startAgent(UInt32 localIP, unsigned short localPort, UInt32 t
 
 void RccUserAgent::stopAgent()
 {
+	mLocalIP = 0;
+	mLocalPort = 0;
+	mTargetIP = 0;
+	mTargetPort = 0;
+
 	if (mSocket == INVALID_SOCKET)
 		return;
 
 	resip::closeSocket(mSocket);
 	mSocket = INVALID_SOCKET;
 
-	mLocalIP = 0;
-	mLocalPort = 0;
-	mTargetIP = 0;
-	mTargetPort = 0;
 }
 
 bool RccUserAgent::sendMessage(RccMessage::MessageType type)
@@ -55,8 +59,16 @@ bool RccUserAgent::sendMessage(RccMessage::MessageType type)
 
 	RccMessage msg;
 	msg.mType = type;
-	msg.mData[0] = 0;
-	return ::sendMessage(mSocket, (char*)&msg, sizeof(msg), mTargetIP, mTargetPort, false);
+	return sendMessage(msg);
+}
+
+bool RccUserAgent::sendMessage(const RccMessage& msg)
+{
+	if (mSocket == INVALID_SOCKET)
+		return false;
+
+	int slen = (msg.mSize > 0) ? msg.mSize : sizeof(msg);
+	return ::sendMessage(mSocket, (char*)&msg, slen, mTargetIP, mTargetPort, false);
 }
 
 bool RccUserAgent::sendMessage(RccMessage::MessageType type, const char * callNumber)
@@ -66,11 +78,32 @@ bool RccUserAgent::sendMessage(RccMessage::MessageType type, const char * callNu
 
 	char data[1024];
 	memset(data, 1024, 0);
+
 	RccMessage* msg = (RccMessage*)data;
 	msg->mType = type;
-	strcpy(msg->mData, callNumber);
+	strcpy(msg->mCallNum, callNumber);
+	msg->mSize = sizeof(RccMessage)+strlen(callNumber);
 
-	return ::sendMessage(mSocket, data, sizeof(msg)+strlen(callNumber), mTargetIP, mTargetPort, false);
+	return sendMessage(*msg);
+}
+
+bool RccUserAgent::sendMessage(RccMessage::MessageType type, const char * callNumber, const char * rtpIP, unsigned short rtpPort, int payload)
+{
+	if (mSocket == INVALID_SOCKET)
+		return false;
+
+	char data[1024];
+	memset(data, 1024, 0);
+
+	RccMessage* msg = (RccMessage*)data;
+	msg->mType = type;
+	msg->mRtpIP = inet_addr(rtpIP);// ntohl(inet_addr(rtpIP));
+	msg->mRtpPort = rtpPort;
+	msg->mRtpPayload = payload;
+	strcpy(msg->mCallNum, callNumber);
+	msg->mSize = sizeof(RccMessage)+strlen(callNumber);
+
+	return sendMessage(*msg);
 }
 
 int RccUserAgent::getMessage(RccMessage * msg, int sz)
