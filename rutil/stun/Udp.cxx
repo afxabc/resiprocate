@@ -146,9 +146,10 @@ getMessage( resip::Socket fd, char* buf, int* len,
          case ECONNRESET:
             cerr << "Error connection reset - host not reachable" <<   endl;
             break;
-				
+         case WSAEWOULDBLOCK:
+            break;
          default:
-            cerr << "Socket Error=" << err << endl;
+			 cerr << "Socket Error=" << err << endl;
       }
 		
       return false;
