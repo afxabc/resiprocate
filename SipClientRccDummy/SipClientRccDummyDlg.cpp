@@ -20,7 +20,6 @@ CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_SIPCLIENTRCCDUMMY_DIALOG, pParent)
 	, localNum_(_T("1001"))
 	, remoteNum_(_T("1000"))
-	, remoteMsg_(_T(""))
 	, rtpIP_("10.10.3.100")
 	, rtpPort_(12345)
 {
@@ -32,7 +31,7 @@ void CSipClientRccDummyDlg::DoDataExchange(CDataExchange* pDX)
 	CDialogEx::DoDataExchange(pDX);
 	DDX_Text(pDX, IDC_LOCAL_NUM, localNum_);
 	DDX_Text(pDX, IDC_REMOTE_NUM, remoteNum_);
-	DDX_Text(pDX, IDC_REMOTE_MSG, remoteMsg_);
+	DDX_Control(pDX, IDC_MSG_LIST, msgList_);
 }
 
 BEGIN_MESSAGE_MAP(CSipClientRccDummyDlg, CDialogEx)
@@ -130,42 +129,45 @@ void CSipClientRccDummyDlg::thread()
 void CSipClientRccDummyDlg::OnOK()
 {
 	resip::Data data;
+	CStringA str;
 	while (queue_.getFront(data))
 	{
+		str = "";
 		RccMessage* msg = (RccMessage*)data.begin();
 		switch (msg->mType)
 		{
-		case RccMessage::CALL_ANSWER:
+		case RccMessage::CALL_ACCEPT:
 		{
 			struct in_addr addr;
-			memcpy(&addr, &msg->mRtpIP, 4);
-			CStringA str;
-			str.Format("应答：%s RTP=%s:%d(%d)", msg->mCallNum, inet_ntoa(addr), msg->mRtpPort, msg->mRtpPayload);
-
-			USES_CONVERSION;
-			remoteMsg_ = A2W(str);
-
-			UpdateData(FALSE);
-
+			memcpy(&addr, &msg->rccAccept.mRtpIP, 4);
+			str.Format("应答：RTP(%s:%d), codec(%d, %d)", inet_ntoa(addr), msg->rccAccept.mRtpPort, msg->rccAccept.mRtpPayload, msg->rccAccept.mRtpRate);
 			break;
 		}
-		case RccMessage::CALL_RING:
+		case RccMessage::CALL_INVITE:
 		{
 			struct in_addr addr;
-			memcpy(&addr, &msg->mRtpIP, 4);
-			CStringA str;
-			str.Format("振铃：%s RTP=%s:%d(%d)", msg->mCallNum, inet_ntoa(addr), msg->mRtpPort, msg->mRtpPayload);
-
-			USES_CONVERSION;
-			remoteMsg_ = A2W(str);
-
-			UpdateData(FALSE);
-
+			memcpy(&addr, &msg->rccInvite.mRtpIP, 4);
+			str.Format("呼叫来自：%s, RTP(%s:%d), codec(%d, %d)", msg->rccInvite.mCallNum, inet_ntoa(addr), msg->rccInvite.mRtpPort, msg->rccInvite.mRtpPayload, msg->rccInvite.mRtpRate);
 			break;
 		}
+		case RccMessage::CALL_CONNECTED:
+			str = "通话建立";
+			break;
+		case RccMessage::CALL_CLOSE:
+			str.Format("关闭 (%d)", msg->rccClose.mError);
+			break;
 
 		}
+
+		if (str.GetLength() > 2)
+		{
+			USES_CONVERSION;
+			msgList_.AddString(A2W(str));
+			msgList_.SetCurSel(msgList_.GetCount() - 1);
+		}
+		
 	}
+
 }
 
 void CSipClientRccDummyDlg::OnBnClickedRegister()
@@ -173,7 +175,7 @@ void CSipClientRccDummyDlg::OnBnClickedRegister()
 	UpdateData();
 
 	USES_CONVERSION;
-	rccAgent_.sendMessage(RccMessage::CALL_REGISTER, W2A(localNum_));
+	rccAgent_.sendMessageRegister(W2A(localNum_));
 }
 
 void CSipClientRccDummyDlg::OnBnClickedInvite()
@@ -182,7 +184,7 @@ void CSipClientRccDummyDlg::OnBnClickedInvite()
 	UpdateData();
 
 	USES_CONVERSION;
-	rccAgent_.sendMessage(RccMessage::CALL_INVITE, W2A(remoteNum_), rtpIP_, rtpPort_, 0);
+	rccAgent_.sendMessageInvite(W2A(remoteNum_), rtpIP_, rtpPort_, 0, 8000);
 }
 
 void CSipClientRccDummyDlg::OnBnClickedAccept()
@@ -191,11 +193,11 @@ void CSipClientRccDummyDlg::OnBnClickedAccept()
 	UpdateData();
 
 	USES_CONVERSION;
-	rccAgent_.sendMessage(RccMessage::CALL_ACCEPT, W2A(localNum_), rtpIP_, rtpPort_, 0);
+	rccAgent_.sendMessageAccept(rtpIP_, rtpPort_, 0, 8000);
 }
 
 void CSipClientRccDummyDlg::OnBnClickedClosecall()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	rccAgent_.sendMessage(RccMessage::CALL_CLOSE);
+	rccAgent_.sendMessageClose();
 }

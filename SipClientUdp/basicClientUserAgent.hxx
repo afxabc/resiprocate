@@ -44,9 +44,9 @@ public:
 
    void checkForRcc();
    void registerSession(const char* num);
-   bool openSession(const char* target, unsigned short rtpPort, UInt32 rtpIP);
+   bool openSession(const char* target, UInt32 rtpIP, unsigned short rtpPort, unsigned char payload, UInt32 rate);
+   void acceptSession(UInt32 rtpIP, unsigned short rtpPort, unsigned char payload, UInt32 rate);
    void closeSession();
-   void acceptSession(unsigned short rtpPort, UInt32 rtpIP);
 
    DialogUsageManager& getDialogUsageManager() { return *mDum; }
    SharedPtr<UserProfile> getIncomingUserProfile(const SipMessage& msg) { return mProfile; } // This test program only uses the one global Master Profile - just return it
@@ -135,7 +135,7 @@ protected:
 	virtual void thread() override;
 	Data makeValidUri(const char* uri);
 
-	void getRemoteOffer(const SdpContents& sdp, BasicClientCall* call);
+	void getRemoteOffer(const SdpContents& sdp, Data& rtpip, unsigned short& rtpport, unsigned char& payload, UInt32& rate);
 
 protected:
    void addTransport(TransportType type, int port);
@@ -169,19 +169,6 @@ protected:
    bool isValidCall(BasicClientCall* call);
 
 private:
-
-	typedef enum
-	{
-		Undefined,                 // Not used
-		Connected,
-		CallerStart,
-		CalleeStart,
-		Idle
-	}CallState;
-
-private:
-	CallState state_;
-
 	Data mSipHost;
 	unsigned short mSipPort;
 	Data mPassword;

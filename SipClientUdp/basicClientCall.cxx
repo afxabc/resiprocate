@@ -31,6 +31,21 @@ using namespace std;
 static unsigned int CallTimerTime = 30;  // Time between call timer
 static unsigned int CallTimeCounterToByeOn = 6;  // BYE the call after the call timer has expired 6 times
 
+
+#define ADD_CODEC_NAME(x) mCodecNames[SdpContents::Session::Codec::x.payloadType()] = SdpContents::Session::Codec::x.getName();
+std::map<int, Data> BasicClientCall::mCodecNames;
+void resip::BasicClientCall::initCodecNames()
+{
+	static bool init = false;
+	if (!init)
+	{
+		ADD_CODEC_NAME(ULaw_8000);
+		ADD_CODEC_NAME(ALaw_8000);
+		ADD_CODEC_NAME(G722_8000);
+		ADD_CODEC_NAME(G729_8000);
+	}
+}
+
 namespace resip
 {
 class CallTimer : public resip::DumCommand
@@ -54,21 +69,17 @@ class CallTimer : public resip::DumCommand
 
 BasicClientCall::BasicClientCall(BasicClientUserAgent& userAgent) : 
 	AppDialogSet(userAgent.getDialogUsageManager()),
-	mLocalMedium(Symbols::audio, 0, 1, Symbols::RTP_AVP),
+	mRtpIP(0), 
+	mRtpPort(0),
+	mRtpPayload(0),
+	mRtpRate(8000),
 	mUserAgent(userAgent),
 	mTimerExpiredCounter(0),
 	mPlacedCall(false),
 	mUACConnectedDialogId(Data::Empty, Data::Empty, Data::Empty)
 {
+	initCodecNames();
 	mUserAgent.registerCall(this);
-
-	mLocalMedium.addCodec(SdpContents::Session::Codec::ULaw_8000);
-	mLocalMedium.addCodec(SdpContents::Session::Codec::ALaw_8000);
-	mLocalMedium.addCodec(SdpContents::Session::Codec::G729_8000);
-	mLocalMedium.addCodec(SdpContents::Session::Codec::TelephoneEvent);
-
-	mLocalMedium.addAttribute("fmtp", "101 0-15");
-	mLocalMedium.addAttribute("sendrecv");
 }
 
 BasicClientCall::~BasicClientCall()
@@ -76,11 +87,13 @@ BasicClientCall::~BasicClientCall()
    mUserAgent.unregisterCall(this);
 }
 
-void
-BasicClientCall::makeOffer(SdpContents& offer, int rtpport, int payload)
+void BasicClientCall::makeOffer(SdpContents& offer)
 {
+	assert(mRtpIP > 0);
+	assert(mRtpPort > 0);
+
 	static Data txt("v=0\r\n"
-		"o=- 0 0 IN IP4 1.1.2.2\r\n"
+		"o=- 0 0 IN IP4 0.0.0.0\r\n"
 		"s=basicClient\r\n"
 		"c=IN IP4 0.0.0.0\r\n"
 		"t=0 0\r\n");
@@ -89,25 +102,10 @@ BasicClientCall::makeOffer(SdpContents& offer, int rtpport, int payload)
 	static Mime type("application", "sdp");
 	static SdpContents offerSdp(hfv, type);
 
-	SdpContents::Session::Medium medium(Symbols::audio, mLocalMedium.port(), 1, Symbols::RTP_AVP);
-	if (rtpport > 0)
-		medium.setPort(rtpport);
-
-	std::list<SdpContents::Session::Codec> codecs = mLocalMedium.codecs();
-	std::list<SdpContents::Session::Codec>::iterator it = codecs.begin();
-	while (it != codecs.end())
-	{
-		if (payload >= 0)
-		{
-			if (payload == it->payloadType())
-			{
-				medium.addCodec(*it);
-				break;
-			}
-		}
-		else medium.addCodec(*it);
-		++it;
-	}
+	SdpContents::Session::Medium medium(Symbols::audio, mRtpPort, 1, Symbols::RTP_AVP);
+	std::map<int, Data>::iterator it = mCodecNames.find(mRtpPayload);
+	if (it != mCodecNames.end())
+		medium.addCodec(SdpContents::Session::Codec(it->second, mRtpPayload, mRtpRate));
 
 	offerSdp.session().addMedium(medium);
 
@@ -116,28 +114,36 @@ BasicClientCall::makeOffer(SdpContents& offer, int rtpport, int payload)
 	offerSdp.session().origin().getSessionId() = currentTime;
 	offerSdp.session().origin().getVersion() = currentTime;
 
+	struct in_addr addr;
+	memcpy(&addr, &mRtpIP, 4);
+	offerSdp.session().origin().setAddress(inet_ntoa(addr));
+	offerSdp.session().connection().setAddress(inet_ntoa(addr));
+
 	offer = offerSdp;
 }
 
-void 
-BasicClientCall::initiateCall(const Uri& target, unsigned short rtpport, UInt32 rtpip, SharedPtr<UserProfile> profile)
+void BasicClientCall::makeOffer(SdpContents& offer, UInt32 rtpip, unsigned short rtpport, unsigned char payload, UInt32 rate)
 {
-	mLocalMedium.port() = rtpport;
-	
-	SdpContents offerSdp;
-	makeOffer(offerSdp, rtpport);
+	mRtpIP = rtpip;
+	mRtpPort = rtpport;
+	mRtpPayload = payload;
+	mRtpRate = rate;
 
-	struct in_addr addr;
-	memcpy(&addr, &rtpip, 4);
-	offerSdp.session().origin().setAddress(inet_ntoa(addr));
-	offerSdp.session().connection().setAddress(inet_ntoa(addr));
+	makeOffer(offer);
+}
+
+void 
+BasicClientCall::initiateCall(const Uri& target, UInt32 rtpip, unsigned short rtpport, unsigned char payload, UInt32 rate, SharedPtr<UserProfile> profile)
+{
+	SdpContents offerSdp;
+	makeOffer(offerSdp, rtpip, rtpport, payload, rate);
 
 	SharedPtr<SipMessage> invite = mUserAgent.getDialogUsageManager().makeInviteSession(NameAddr(target), profile, &offerSdp, this);
 	mUserAgent.getDialogUsageManager().send(invite);
 	mPlacedCall = true;
 }
 
-void resip::BasicClientCall::acceptCall(unsigned short rtpport, UInt32 rtpip, int payload)
+void resip::BasicClientCall::acceptCall(UInt32 rtpip, unsigned short rtpport, unsigned char payload, UInt32 rate)
 {
 	if (!mInviteSessionHandle.isValid())
 		return;
@@ -146,14 +152,8 @@ void resip::BasicClientCall::acceptCall(unsigned short rtpport, UInt32 rtpip, in
 	if (!uas || uas->isAccepted())
 		return;
 
-	mLocalMedium.port() = rtpport;
 	SdpContents answerSdp;
-	makeOffer(answerSdp, rtpport, payload);
-
-	struct in_addr addr;
-	memcpy(&addr, &rtpip, 4);
-	answerSdp.session().origin().setAddress(inet_ntoa(addr));
-	answerSdp.session().connection().setAddress(inet_ntoa(addr));
+	makeOffer(answerSdp, rtpip, rtpport, payload, rate);
 
 	// Provide Answer here - for test client just echo back same SDP as received for now
 	mInviteSessionHandle->provideAnswer(answerSdp);
@@ -198,7 +198,7 @@ BasicClientCall::selectUASUserProfile(const SipMessage& msg)
    return mUserAgent.getIncomingUserProfile(msg);
 }
 
-bool 
+bool
 BasicClientCall::isUACConnected()
 {
    return !mUACConnectedDialogId.getCallId().empty();

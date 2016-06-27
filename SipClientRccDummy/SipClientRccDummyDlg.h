@@ -7,6 +7,7 @@
 #include "queue.h"
 #include "SipClientUdp\RccUserAgent.h"
 #include "rutil\ThreadIf.hxx"
+#include "afxwin.h"
 
 // CSipClientRccDummyDlg ¶Ô»°¿ò
 class CSipClientRccDummyDlg : public CDialogEx, resip::ThreadIf
@@ -50,5 +51,5 @@ public:
 	afx_msg void OnBnClickedClosecall();
 	CString localNum_;
 	CString remoteNum_;
-	CString remoteMsg_;
+	CListBox msgList_;
 };

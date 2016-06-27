@@ -112,7 +112,6 @@ class NotifyTimer : public resip::DumCommand
 } // end namespace
 
 BasicClientUserAgent::BasicClientUserAgent() :
-	state_(Undefined),
 	mSipPort(0),
 	mRegisterDuration(3600),
 	mTransport(NULL),
@@ -176,12 +175,12 @@ void resip::BasicClientUserAgent::setupProfile()
 	mProfile->addSupportedMethod(OPTIONS);
 	mProfile->addSupportedMethod(BYE);
 	//mProfile->addSupportedMethod(REFER);
-	//mProfile->addSupportedMethod(NOTIFY);
+	mProfile->addSupportedMethod(NOTIFY);
 	mProfile->addSupportedMethod(SUBSCRIBE);
-	//mProfile->addSupportedMethod(UPDATE);
+	mProfile->addSupportedMethod(UPDATE);
 	mProfile->addSupportedMethod(INFO);
 	mProfile->addSupportedMethod(MESSAGE);
-	//mProfile->addSupportedMethod(PRACK);
+	mProfile->addSupportedMethod(PRACK);
 	//mProfile->addSupportedOptionTag(Token(Symbols::C100rel));  // Automatically added when using setUacReliableProvisionalMode
 	mProfile->setUacReliableProvisionalMode(MasterProfile::Supported);
 	mProfile->setUasReliableProvisionalMode(MasterProfile::SupportedEssential);
@@ -359,8 +358,7 @@ bool BasicClientUserAgent::start(const char * sipHost, const char * passwd, unsi
 	return true;
 }
 
-void
-BasicClientUserAgent::stop()
+void BasicClientUserAgent::stop()
 {
    assert(mDum);
 
@@ -373,8 +371,6 @@ BasicClientUserAgent::stop()
    mStackThread->shutdown();
    mStackThread->join();
 
-   state_ = Undefined;
-
    mRccAgent.stopAgent();
 }
 
@@ -383,25 +379,25 @@ void resip::BasicClientUserAgent::checkForRcc()
 	if (!mRccAgent.isValid())
 		return;
 
-	static char data[1024];
+	static char data[RccMessage::ALLOC_SIZE];
 	RccMessage* msg = (RccMessage*)data;
-	int sz = mRccAgent.getMessage(msg, 1024);
+	int sz = mRccAgent.getMessage(msg, RccMessage::ALLOC_SIZE);
 	if (sz <= 0)
 		return;
 
 	switch (msg->mType)
 	{
 	case RccMessage::CALL_REGISTER:
-		registerSession(msg->mCallNum);
+		registerSession(msg->rccRegister.mCallNum);
 		break;
 	case RccMessage::CALL_INVITE:
-		openSession(msg->mCallNum, msg->mRtpPort, msg->mRtpIP);
+		openSession(msg->rccInvite.mCallNum, msg->rccInvite.mRtpIP, msg->rccInvite.mRtpPort, msg->rccInvite.mRtpPayload, msg->rccInvite.mRtpRate);
+		break;
+	case RccMessage::CALL_ACCEPT:
+		acceptSession(msg->rccAccept.mRtpIP, msg->rccAccept.mRtpPort, msg->rccAccept.mRtpPayload, msg->rccAccept.mRtpRate);
 		break;
 	case RccMessage::CALL_CLOSE:
 		closeSession();
-		break;
-	case RccMessage::CALL_ACCEPT:
-		acceptSession(msg->mRtpPort, msg->mRtpIP);
 		break;
 	}
 }
@@ -431,16 +427,13 @@ void resip::BasicClientUserAgent::registerSession(const char* num)
 	mDum->send(mDum->makeRegistration(sipUri));
 }
 
-bool resip::BasicClientUserAgent::openSession(const char * num, unsigned short rtpPort, UInt32 rtpIP)
+bool resip::BasicClientUserAgent::openSession(const char * num, UInt32 rtpIP, unsigned short rtpPort, unsigned char payload, UInt32 rate)
 {
-	if (state_ != Idle)
-		return false;
-
 	Data sToURI = makeValidUri(num);
 		
 //	mCallTarget = Uri(sToURI);
     BasicClientCall* newCall = new BasicClientCall(*this);
-	newCall->initiateCall(Uri(sToURI), rtpPort, rtpIP, mProfile);
+	newCall->initiateCall(Uri(sToURI), rtpIP, rtpPort, payload, rate, mProfile);
 
 	return true;
 }
@@ -456,15 +449,12 @@ void resip::BasicClientUserAgent::closeSession()
 	}
 }
 
-void resip::BasicClientUserAgent::acceptSession(unsigned short rtpPort, UInt32 rtpIP)
+void resip::BasicClientUserAgent::acceptSession(UInt32 rtpIP, unsigned short rtpPort, unsigned char payload, UInt32 rate)
 {
-	if (state_ != CalleeStart)
-		return;
-
 	std::set<BasicClientCall*>::iterator it = mCallList.begin();
 	if (it != mCallList.end())
 	{
-		(*it)->acceptCall(rtpPort, rtpIP, mPayload);
+		(*it)->acceptCall(rtpIP, rtpPort, payload, rate);
 	}
 }
 
@@ -605,8 +595,6 @@ BasicClientUserAgent::onSuccess(ClientRegistrationHandle h, const SipMessage& ms
 	}
 	mRegHandle = h;
 	mRegistrationRetryDelayTime = 0;  // reset
-	if (Undefined == state_)
-		state_ = Idle;
 }
 
 void
@@ -659,21 +647,18 @@ void
 BasicClientUserAgent::onNewSession(ClientInviteSessionHandle h, InviteSession::OfferAnswerType oat, const SipMessage& msg)
 {
    dynamic_cast<BasicClientCall *>(h->getAppDialogSet().get())->onNewSession(h, oat, msg);
-   state_ = CallerStart;
 }
 
 void
 BasicClientUserAgent::onNewSession(ServerInviteSessionHandle h, InviteSession::OfferAnswerType oat, const SipMessage& msg)
 {
    dynamic_cast<BasicClientCall *>(h->getAppDialogSet().get())->onNewSession(h, oat, msg);
-   state_ = CalleeStart;
 }
 
 void
 BasicClientUserAgent::onFailure(ClientInviteSessionHandle h, const SipMessage& msg)
 {
    dynamic_cast<BasicClientCall *>(h->getAppDialogSet().get())->onFailure(h, msg);
-   state_ = Idle;
 }
 
 void
@@ -692,14 +677,14 @@ void
 BasicClientUserAgent::onConnected(ClientInviteSessionHandle h, const SipMessage& msg)
 {
    dynamic_cast<BasicClientCall *>(h->getAppDialogSet().get())->onConnected(h, msg);
-   state_ = Connected;
+   mRccAgent.sendMessage(RccMessage::CALL_CONNECTED);
 }
 
 void
 BasicClientUserAgent::onConnected(InviteSessionHandle h, const SipMessage& msg)
 {
    dynamic_cast<BasicClientCall *>(h->getAppDialogSet().get())->onConnected(h, msg);
-   state_ = Connected;
+   mRccAgent.sendMessage(RccMessage::CALL_CONNECTED);
 }
 
 void
@@ -712,7 +697,7 @@ void
 BasicClientUserAgent::onTerminated(InviteSessionHandle h, InviteSessionHandler::TerminatedReason reason, const SipMessage* msg)
 {
    dynamic_cast<BasicClientCall *>(h->getAppDialogSet().get())->onTerminated(h, reason, msg);
-   state_ = Idle;
+   mRccAgent.sendMessageClose(reason);
 }
 
 void
@@ -724,16 +709,17 @@ BasicClientUserAgent::onRedirected(ClientInviteSessionHandle h, const SipMessage
 ///////////////////////////////////////////////////////////////////////////////
 ///**************************************************************************//
 
-void resip::BasicClientUserAgent::getRemoteOffer(const SdpContents & sdp, BasicClientCall* call)
+void resip::BasicClientUserAgent::getRemoteOffer(const SdpContents & sdp, Data& rtpip, unsigned short& rtpport, unsigned char& payload, UInt32& rate)
 {
-	mRtpIP = sdp.session().origin().getAddress();
+	rtpip = sdp.session().origin().getAddress();
 	for (list<SdpContents::Session::Medium>::const_iterator i = sdp.session().media().begin();
 		i != sdp.session().media().end(); ++i)
 	{
 		if (i->name() == Symbols::audio)
 		{
-			mRtpPort = i->port();
-			mPayload = call->findFirstMatchingCodecs(*i).payloadType();
+			rtpport = i->port();
+			payload = i->codecs().begin()->payloadType();
+			rate = i->codecs().begin()->getRate();
 			break;
 		}
 	}
@@ -746,9 +732,14 @@ BasicClientUserAgent::onAnswer(InviteSessionHandle h, const SipMessage& msg, con
 	if (call != NULL)
 	{
 		call->onAnswer(h, msg, sdp);
-		getRemoteOffer(sdp, call);
-		Data host = msg.header(resip::h_Contacts).front().displayName();
-		mRccAgent.sendMessage(RccMessage::CALL_ANSWER, host.begin(), mRtpIP.begin(), mRtpPort, mPayload);
+		
+		Data rtpip;
+		unsigned short rtpport;
+		unsigned char payload;
+		UInt32 rate;
+		getRemoteOffer(sdp, rtpip, rtpport, payload, rate);
+
+		mRccAgent.sendMessageAccept(rtpip.begin(), rtpport, payload, rate);
 	}
 }
 
@@ -759,9 +750,23 @@ BasicClientUserAgent::onOffer(InviteSessionHandle h, const SipMessage& msg, cons
 	if (call != NULL)
 	{
 		call->onOffer(h, msg, sdp);
-		getRemoteOffer(sdp, call);
-		Data host = msg.header(resip::h_Contacts).front().displayName();
-		mRccAgent.sendMessage(RccMessage::CALL_RING, host.begin(), mRtpIP.begin(), mRtpPort, mPayload);
+		
+		/*
+		msgIncomingCall(msg.header(resip::h_CallId).value(),
+			msg.header(resip::h_Contacts).front().displayName(),
+			msg.header(resip::h_Contacts).front().uri().user(),
+			msg.header(resip::h_Contacts).front().uri().host(),
+			msg.header(resip::h_RequestLine).uri().host());
+		*/
+		Data host = msg.header(resip::h_Contacts).front().uri().user();
+
+		Data rtpip;
+		unsigned short rtpport;
+		unsigned char payload;
+		UInt32 rate;
+		getRemoteOffer(sdp, rtpip, rtpport, payload, rate);
+
+		mRccAgent.sendMessageInvite(host.begin(), rtpip.begin(), rtpport, payload, rate);
 	}
 }
 
@@ -971,6 +976,7 @@ BasicClientUserAgent::onTerminated(ClientSubscriptionHandle h, const SipMessage*
    {
       InfoLog(<< "onTerminated(ClientSubscriptionHandle)");
    }
+   mRccAgent.sendMessageClose(0);
 }
 
 void

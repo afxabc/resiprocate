@@ -20,16 +20,16 @@ public:
    BasicClientCall(BasicClientUserAgent& userAgent);
    virtual ~BasicClientCall();
    
-   virtual void initiateCall(const Uri& target, unsigned short rtpport, UInt32 rtpip, SharedPtr<UserProfile> profile);
+   virtual void initiateCall(const Uri& target, UInt32 rtpip, unsigned short rtpport, unsigned char payload, UInt32 rate, SharedPtr<UserProfile> profile);
+   void acceptCall(UInt32 rtpip, unsigned short rtpport, unsigned char payload, UInt32 rate);
+
    virtual void terminateCall();
    virtual void timerExpired();
 
-   void acceptCall(unsigned short rtpport, UInt32 rtpip, int payload);
-
-   const Codec& findFirstMatchingCodecs(const SdpContents::Session::Medium& medium) const
-   {
-	   return mLocalMedium.findFirstMatchingCodecs(medium);
-   }
+   UInt32& rtpIP() { return mRtpIP; }
+   unsigned short& rtpPort() { return mRtpPort; }
+   unsigned char& rtpPayload() { return mRtpPayload; }
+   UInt32& rtpRate() { return mRtpRate; }
 
 protected:
    friend class BasicClientUserAgent;
@@ -85,19 +85,38 @@ protected:
    virtual void onRedirectReceived(AppDialogSetHandle h, const SipMessage& msg);
 
 private:
-	SdpContents::Session::Medium mLocalMedium;
+	typedef enum
+	{
+		Undefined,                 // Not used
+		Connected,
+		CallerStart,
+		CalleeStart,
+		Idle
+	}CallState;
+
+	CallState mState;
+
 	BasicClientUserAgent &mUserAgent;
 	resip::InviteSessionHandle mInviteSessionHandle;
 	unsigned int mTimerExpiredCounter;
 	bool mPlacedCall;
 	resip::InviteSessionHandle mInviteSessionHandleReplaced;
 
+	UInt32 mRtpIP;
+	unsigned short mRtpPort;
+	unsigned char mRtpPayload;
+	unsigned int mRtpRate;
+
+	static std::map<int, Data> mCodecNames;
+	static void initCodecNames();
+
 	// UAC forked call handling helper members
 	bool isUACConnected();
 	bool isStaleFork(const resip::DialogId& dialogId);
 	resip::DialogId mUACConnectedDialogId;
 
-	void makeOffer(SdpContents& offer, int rtpport = -1, int payload = -1);
+	void makeOffer(SdpContents& offer, UInt32 rtpip, unsigned short rtpport, unsigned char payload, UInt32 rate);
+	void makeOffer(SdpContents& offer);
 };
  
 }
