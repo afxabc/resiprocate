@@ -595,6 +595,8 @@ BasicClientUserAgent::onSuccess(ClientRegistrationHandle h, const SipMessage& ms
 	}
 	mRegHandle = h;
 	mRegistrationRetryDelayTime = 0;  // reset
+
+	mRccAgent.sendMessage(RccMessage::CALL_REG_OK);
 }
 
 void
@@ -606,6 +608,7 @@ BasicClientUserAgent::onFailure(ClientRegistrationHandle h, const SipMessage& ms
    {
        h->end();
    }
+	mRccAgent.sendMessage(RccMessage::CALL_REG_FAILED);
 }
 
 void
@@ -883,11 +886,13 @@ BasicClientUserAgent::onTrying(AppDialogSetHandle h, const SipMessage& msg)
    if(call)
    {
       call->onTrying(h, msg);
+	  mRccAgent.sendMessage(RccMessage::CALL_TRYING);
    }
    else
    {
       InfoLog(<< "onTrying(AppDialogSetHandle): " << msg.brief());
    }
+
 }
 
 void 

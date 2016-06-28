@@ -12,16 +12,93 @@
 #endif
 
 
+//////////////////////////////////////
+
+int WINAPI val_seg(int val)
+{
+	int r = 0;
+	val >>= 7;
+	if (val & 0xf0) {
+		val >>= 4;
+		r += 4;
+	}
+	if (val & 0x0c) {
+		val >>= 2;
+		r += 2;
+	}
+	if (val & 0x02)
+		r += 1;
+	return r;
+}
+
+unsigned char WINAPI s16_to_alaw(int pcm_val)
+{
+	int		mask;
+	int		seg;
+	unsigned char	aval;
+
+	if (pcm_val >= 0) {
+		mask = 0xD5;
+	}
+	else {
+		mask = 0x55;
+		pcm_val = -pcm_val;
+		if (pcm_val > 0x7fff)
+			pcm_val = 0x7fff;
+	}
+
+	if (pcm_val < 256)
+		aval = pcm_val >> 4;
+	else {
+		/* Convert the scaled magnitude to segment number. */
+		seg = val_seg(pcm_val);
+		aval = (seg << 4) | ((pcm_val >> (seg + 3)) & 0x0f);
+	}
+	return aval ^ mask;
+}
+
+/*
+* alaw_to_s16() - Convert an A-law value to 16-bit linear PCM
+*
+*/
+int WINAPI alaw_to_s16(unsigned char a_val)
+{
+	int		t;
+	int		seg;
+
+	a_val ^= 0x55;
+	t = a_val & 0x7f;
+	if (t < 16)
+		t = (t << 4) + 8;
+	else {
+		seg = (t >> 4) & 0x07;
+		t = ((t & 0x0f) << 4) + 0x108;
+		t <<= seg - 1;
+	}
+	return ((a_val & 0x80) ? t : -t);
+}
+
+/////////////////////////////////////
 // CSipClientRccDummyDlg 对话框
 
-
+/*
+const Codec Codec::ULaw_8000("PCMU", 0, 8000);
+const Codec Codec::GSM_8000("GSM", 3, 8000);
+const Codec Codec::G723_8000("G723", 4, 8000);
+const Codec Codec::ALaw_8000("PCMA", 8, 8000);
+const Codec Codec::G722_8000("G722", 9, 8000);
+*/
 
 CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_SIPCLIENTRCCDUMMY_DIALOG, pParent)
 	, localNum_(_T("1001"))
-	, remoteNum_(_T("1000"))
+//	, remoteNum_(_T("1000"))
+	, remoteNum_(_T("9664"))
 	, rtpIP_("10.10.3.100")
-	, rtpPort_(12345)
+	, rtpPort_(24680)
+//	, rtpPayload_(0)		//"ULaw"
+	, rtpPayload_(8)		//"ALaw"
+	, rtpRate_(8000)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -57,6 +134,7 @@ BOOL CSipClientRccDummyDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
+	int ret = rtpSession_.Create(rtpPort_);
 	rccAgent_.startAgent(21358, NULL, DUMMY_RCC_PORT, "10.10.3.100");
 	this->run();
 
@@ -105,24 +183,68 @@ void CSipClientRccDummyDlg::OnDestroy()
 	rccAgent_.stopAgent();
 	this->shutdown();
 	this->join();
+	rtpSession_.Destroy();
 	CDialogEx::OnDestroy();
+}
+
+bool CSipClientRccDummyDlg::checkForRcc()
+{
+	if (!rccAgent_.isValid())
+		return false;
+
+	static char buf[2048];
+	int sz = rccAgent_.getMessage((RccMessage*)buf, 2048);
+	if (sz > 0)
+	{
+		queue_.putBack(resip::Data(buf, sz));
+		this->PostMessage(WM_COMMAND, IDOK);
+	}
+
+	return (sz > 0);
 }
 
 void CSipClientRccDummyDlg::thread()
 {
-	static char buf[1024];
-
-	while (rccAgent_.isValid())
+	Buffer tmpBuf;
+	while (!isShutdown())
 	{
-		int sz = rccAgent_.getMessage((RccMessage*)buf, 1024);
-		if (sz <= 0)
-		{
+		if (!checkForRcc() && !audioWrite_.isStart())
 			Sleep(100);
-			continue;
-		}
 
-		queue_.putBack(resip::Data(buf, sz));
-		this->PostMessage(WM_COMMAND, IDOK);
+		if (audioWrite_.isStart())
+		{
+			rtpSession_.PollData();
+
+			// check incoming packets
+			if (rtpSession_.GotoFirstSourceWithData())
+			{
+				do
+				{
+					RTPPacket *pack;
+					while ((pack = rtpSession_.GetNextPacket()) != NULL)
+					{
+						// You can examine the data here
+						char* data = (char*)pack->GetPayload();
+						int len = pack->GetPayloadLength();
+
+						if (pack->GetPayloadType() == rtpPayload_ && len > 0)	//is alaw?
+						{
+							tmpBuf.pushBack(len*2, true);
+							short* s16 = (short*)tmpBuf.beginRead();
+							for (int j = 0; j<len; j++)
+								s16[j] = alaw_to_s16(data[j]);
+							audioWrite_.inputPcm(tmpBuf.beginRead(), tmpBuf.readableBytes());
+							tmpBuf.erase();
+						}
+
+						// we don't longer need the packet, so
+						// we'll delete it
+						delete pack;
+					}
+				} while (rtpSession_.GotoNextSourceWithData());
+			}
+
+		}
 	}
 }
 
@@ -141,20 +263,41 @@ void CSipClientRccDummyDlg::OnOK()
 			struct in_addr addr;
 			memcpy(&addr, &msg->rccAccept.mRtpIP, 4);
 			str.Format("应答：RTP(%s:%d), codec(%d, %d)", inet_ntoa(addr), msg->rccAccept.mRtpPort, msg->rccAccept.mRtpPayload, msg->rccAccept.mRtpRate);
+			remoteRtpIP_ = msg->rccAccept.mRtpIP;
+			remoteRtpPort_ = msg->rccAccept.mRtpPort;
+			remoteRtpPayload_ = msg->rccAccept.mRtpPayload;
+			remoteRtpRate_ = msg->rccAccept.mRtpRate;
 			break;
 		}
 		case RccMessage::CALL_INVITE:
 		{
 			struct in_addr addr;
 			memcpy(&addr, &msg->rccInvite.mRtpIP, 4);
-			str.Format("呼叫来自：%s, RTP(%s:%d), codec(%d, %d)", msg->rccInvite.mCallNum, inet_ntoa(addr), msg->rccInvite.mRtpPort, msg->rccInvite.mRtpPayload, msg->rccInvite.mRtpRate);
+			str.Format("来电：%s, RTP(%s:%d), codec(%d, %d)", msg->rccInvite.mCallNum, inet_ntoa(addr), msg->rccInvite.mRtpPort, msg->rccInvite.mRtpPayload, msg->rccInvite.mRtpRate);
+			remoteRtpIP_ = msg->rccAccept.mRtpIP;
+			remoteRtpPort_ = msg->rccAccept.mRtpPort;
+			remoteRtpPayload_ = msg->rccAccept.mRtpPayload;
+			remoteRtpRate_ = msg->rccAccept.mRtpRate;
 			break;
 		}
 		case RccMessage::CALL_CONNECTED:
-			str = "通话建立";
+			str = "通话中......";
+			rtpSession_.AddDestination(ntohl(remoteRtpIP_), remoteRtpPort_);
+			audioWrite_.start(remoteRtpRate_);
 			break;
 		case RccMessage::CALL_CLOSE:
-			str.Format("关闭 (%d)", msg->rccClose.mError);
+			audioWrite_.stop();
+			str.Format("结束通话。 (%d)", msg->rccClose.mError);
+			rtpSession_.ClearDestinations();
+			break;
+		case RccMessage::CALL_REG_OK:
+			str = "注册成功。";
+			break;
+		case RccMessage::CALL_REG_FAILED:
+			str = "注册失败！";
+			break;
+		case RccMessage::CALL_TRYING:
+			str = "呼叫中......";
 			break;
 
 		}
@@ -184,7 +327,7 @@ void CSipClientRccDummyDlg::OnBnClickedInvite()
 	UpdateData();
 
 	USES_CONVERSION;
-	rccAgent_.sendMessageInvite(W2A(remoteNum_), rtpIP_, rtpPort_, 0, 8000);
+	rccAgent_.sendMessageInvite(W2A(remoteNum_), rtpIP_, rtpPort_, rtpPayload_, rtpRate_);
 }
 
 void CSipClientRccDummyDlg::OnBnClickedAccept()
@@ -193,11 +336,12 @@ void CSipClientRccDummyDlg::OnBnClickedAccept()
 	UpdateData();
 
 	USES_CONVERSION;
-	rccAgent_.sendMessageAccept(rtpIP_, rtpPort_, 0, 8000);
+	rccAgent_.sendMessageAccept(rtpIP_, rtpPort_, rtpPayload_, rtpRate_);
 }
 
 void CSipClientRccDummyDlg::OnBnClickedClosecall()
 {
 	// TODO: 在此添加控件通知处理程序代码
 	rccAgent_.sendMessageClose();
+	audioWrite_.stop();
 }

@@ -5,8 +5,13 @@
 #pragma once
 
 #include "queue.h"
+#include "AudioWrite.h"
+
+#include "jrtplib\rtpsession.h"
+#include "jrtplib\rtppacket.h"
 #include "SipClientUdp\RccUserAgent.h"
 #include "rutil\ThreadIf.hxx"
+
 #include "afxwin.h"
 
 // CSipClientRccDummyDlg 对话框
@@ -24,32 +29,49 @@ public:
 	protected:
 	virtual void DoDataExchange(CDataExchange* pDX);	// DDX/DDV 支持
 
+	virtual BOOL OnInitDialog();
 
 // 实现
 protected:
-	HICON m_hIcon;
-	RccUserAgent rccAgent_;
-	typedef Queue<resip::Data> QUEUE;
-	QUEUE queue_;
-	const char* rtpIP_;
-	unsigned short rtpPort_;
 
 	// 生成的消息映射函数
-	virtual BOOL OnInitDialog();
+	DECLARE_MESSAGE_MAP()
+
 	afx_msg void OnPaint();
 	afx_msg HCURSOR OnQueryDragIcon();
-	DECLARE_MESSAGE_MAP()
-public:
 	afx_msg void OnDestroy();
-
-	// 通过 ThreadIf 继承
-	virtual void thread() override;
-	virtual void OnOK();
 	afx_msg void OnBnClickedRegister();
 	afx_msg void OnBnClickedInvite();
 	afx_msg void OnBnClickedAccept();
 	afx_msg void OnBnClickedClosecall();
+
+	// 通过 ThreadIf 继承
+	virtual void thread() override;
+	virtual void OnOK();
+
+	bool checkForRcc();
+
+protected:
+	HICON m_hIcon;
 	CString localNum_;
 	CString remoteNum_;
 	CListBox msgList_;
+
+	RccUserAgent rccAgent_;
+	typedef Queue<resip::Data> QUEUE;
+	QUEUE queue_;
+
+	RTPSession rtpSession_;
+
+	const char* rtpIP_;
+	unsigned short rtpPort_;
+	unsigned char rtpPayload_;
+	unsigned int rtpRate_;
+
+	UInt32 remoteRtpIP_;
+	unsigned short remoteRtpPort_;
+	unsigned char remoteRtpPayload_;
+	unsigned int remoteRtpRate_;
+
+	AudioWrite audioWrite_;
 };

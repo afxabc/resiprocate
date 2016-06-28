@@ -79,7 +79,7 @@ int main()
 	}
 
 #ifdef WIN32
-	system("pause");
+//	system("pause");
 #endif
 
     return 0;

@@ -100,7 +100,7 @@ void BasicClientCall::makeOffer(SdpContents& offer)
 
 	static HeaderFieldValue hfv(txt.data(), txt.size());
 	static Mime type("application", "sdp");
-	static SdpContents offerSdp(hfv, type);
+	SdpContents offerSdp(hfv, type);
 
 	SdpContents::Session::Medium medium(Symbols::audio, mRtpPort, 1, Symbols::RTP_AVP);
 	std::map<int, Data>::iterator it = mCodecNames.find(mRtpPayload);

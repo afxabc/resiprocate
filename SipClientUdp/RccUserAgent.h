@@ -14,6 +14,7 @@ static const unsigned short DUMMY_RCC_PORT = 9767;
 #pragma pack(1)
 #endif
 
+class RccUserAgent;
 struct RccMessage
 {
 	static const int ALLOC_SIZE = 1024;
@@ -23,13 +24,27 @@ struct RccMessage
 		CALL_INVITE,
 		CALL_CLOSE,
 		CALL_ACCEPT,
-		CALL_CONNECTED
+		CALL_CONNECTED,
+		CALL_REG_OK,
+		CALL_REG_FAILED,
+		CALL_TRYING,
 	};
 
 	RccMessage() : mSize(sizeof(RccMessage)) {}
 
-	MessageType mType;
-	unsigned short mSize;
+private:
+	void netToHost() const;
+	void hostToNet() const;
+
+	friend class RccUserAgent;
+
+public:
+	//////////////////////////
+	//以下short，int为网络字序
+	/////////////////////////
+
+	unsigned char mType;
+	mutable short mSize;
 	//以下消息需要附加数据
 	union 
 	{
@@ -40,20 +55,19 @@ struct RccMessage
 
 		struct RccInvite
 		{
-			//网络字序，下同
-			unsigned int mRtpIP;			//rtp地址
-			unsigned short mRtpPort;		//rtp端口
-			unsigned char mRtpPayload;		//rtp编码类型
-			unsigned int mRtpRate;			//rtp码率
+			unsigned int mRtpIP;					//rtp地址
+			mutable unsigned short mRtpPort;		//rtp端口
+			unsigned char mRtpPayload;				//rtp编码类型
+			mutable unsigned int mRtpRate;			//rtp码率
 			char mCallNum[1];
 		}rccInvite;
 
 		struct RccAccept
 		{
 			unsigned int mRtpIP;
-			unsigned short mRtpPort;
+			mutable unsigned short mRtpPort;
 			unsigned char mRtpPayload;
-			unsigned int mRtpRate;			
+			mutable unsigned int mRtpRate;
 		}rccAccept;
 
 		struct RccClose
@@ -83,13 +97,15 @@ public:
 
 	bool isValid() { return (mSocket != INVALID_SOCKET); }
 
-	bool sendMessage(const RccMessage& msg);
 	bool sendMessage(RccMessage::MessageType type);
 	bool sendMessageRegister(const char * callNumber);
 	bool sendMessageInvite(const char * callNumber, const char* rtpIP, unsigned short rtpPort, unsigned char payload, unsigned int rate);
 	bool sendMessageAccept(const char* rtpIP, unsigned short rtpPort, unsigned char payload, unsigned int rate);
 	bool sendMessageClose(unsigned char error = 0, const char* reason = NULL);
 	int getMessage(RccMessage* msg, int sz = sizeof(RccMessage));
+
+private:
+	bool sendMessage(const RccMessage& msg);
 
 private:
 	resip::Socket mSocket;

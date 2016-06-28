@@ -2,6 +2,41 @@
 #include "RccUserAgent.h"
 
 
+
+void RccMessage::netToHost() const
+{
+	mSize = ntohs(mSize);
+	switch (mType)
+	{
+	case CALL_INVITE:
+		rccInvite.mRtpPort = ntohs(rccInvite.mRtpPort);
+		rccInvite.mRtpRate = ntohl(rccInvite.mRtpRate);
+		break;
+	case CALL_ACCEPT:
+		rccAccept.mRtpPort = ntohs(rccAccept.mRtpPort);
+		rccAccept.mRtpRate = ntohl(rccAccept.mRtpRate);
+		break;
+	}
+}
+
+void RccMessage::hostToNet() const
+{
+	mSize = htons(mSize);
+	switch (mType)
+	{
+	case CALL_INVITE:
+		rccInvite.mRtpPort = htons(rccInvite.mRtpPort);
+		rccInvite.mRtpRate = htonl(rccInvite.mRtpRate);
+		break;
+	case CALL_ACCEPT:
+		rccAccept.mRtpPort = htons(rccAccept.mRtpPort);
+		rccAccept.mRtpRate = htonl(rccAccept.mRtpRate);
+		break;
+	}
+}
+
+////////////////////////////////////////////////////////////////////
+
 RccUserAgent::RccUserAgent() :
 	mLocalIP(0),
 	mLocalPort(0),
@@ -58,6 +93,7 @@ bool RccUserAgent::sendMessage(const RccMessage& msg)
 		return false;
 
 	int slen = (msg.mSize > 0) ? msg.mSize : sizeof(msg);
+	msg.hostToNet();
 	return ::sendMessage(mSocket, (char*)&msg, slen, mTargetIP, mTargetPort, false);
 }
 
@@ -98,7 +134,7 @@ bool RccUserAgent::sendMessageInvite(const char * callNumber, const char * rtpIP
 	RccMessage* msg = (RccMessage*)data;
 	msg->mType = RccMessage::CALL_INVITE;
 	msg->rccInvite.mRtpIP = inet_addr(rtpIP);// ntohl(inet_addr(rtpIP));
-	msg->rccInvite.mRtpPort = htons(rtpPort);
+	msg->rccInvite.mRtpPort = rtpPort;
 	msg->rccInvite.mRtpPayload = payload;
 	msg->rccInvite.mRtpRate = rate;
 	strcpy(msg->rccInvite.mCallNum, callNumber);
@@ -118,7 +154,7 @@ bool RccUserAgent::sendMessageAccept(const char * rtpIP, unsigned short rtpPort,
 	RccMessage* msg = (RccMessage*)data;
 	msg->mType = RccMessage::CALL_ACCEPT;
 	msg->rccAccept.mRtpIP = inet_addr(rtpIP);// ntohl(inet_addr(rtpIP));
-	msg->rccAccept.mRtpPort = htons(rtpPort);
+	msg->rccAccept.mRtpPort = rtpPort;
 	msg->rccAccept.mRtpPayload = payload;
 	msg->rccAccept.mRtpRate = rate;
 	msg->mSize = sizeof(RccMessage);
@@ -154,6 +190,8 @@ int RccUserAgent::getMessage(RccMessage * msg, int sz)
 
 	if (!::getMessage(mSocket, (char*)msg, &sz, &mTargetIP, &mTargetPort, false))
 		return 0;
+
+	msg->netToHost();
 
 	return sz;
 }
