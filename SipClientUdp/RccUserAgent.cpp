@@ -5,18 +5,40 @@
 
 void RccMessage::netToHost() const
 {
+	char* strIP = NULL;
 	mSize = ntohs(mSize);
 	switch (mType)
 	{
 	case CALL_INVITE:
 		rccInvite.mRtpPort = ntohs(rccInvite.mRtpPort);
 		rccInvite.mRtpRate = ntohl(rccInvite.mRtpRate);
+		strIP = rccInvite.mRtpIP;
 		break;
 	case CALL_ACCEPT:
 		rccAccept.mRtpPort = ntohs(rccAccept.mRtpPort);
 		rccAccept.mRtpRate = ntohl(rccAccept.mRtpRate);
+		strIP = rccAccept.mRtpIP;
 		break;
 	}
+
+	if (strIP == NULL)
+		return;
+
+	//make sure mRtpIP ended with 0
+	int i;
+	for (i = 0; i < RccMessage::IP_STR_SIZE; ++i)
+	{
+		if (strIP[i] == 0)
+			break;
+
+		if (strIP[i] != '.' && !isdigit(strIP[i]))
+		{
+			strIP[i] = 0;
+			break;
+		}
+	}
+	if (i == RccMessage::IP_STR_SIZE)
+		strIP[i] = 0;
 }
 
 void RccMessage::hostToNet() const
@@ -133,7 +155,8 @@ bool RccUserAgent::sendMessageInvite(const char * callNumber, const char * rtpIP
 
 	RccMessage* msg = (RccMessage*)data;
 	msg->mType = RccMessage::CALL_INVITE;
-	msg->rccInvite.mRtpIP = inet_addr(rtpIP);// ntohl(inet_addr(rtpIP));
+	//msg->rccInvite.mRtpIP = inet_addr(rtpIP);// ntohl(inet_addr(rtpIP));
+	strncpy(msg->rccInvite.mRtpIP, rtpIP, RccMessage::IP_STR_SIZE);
 	msg->rccInvite.mRtpPort = rtpPort;
 	msg->rccInvite.mRtpPayload = payload;
 	msg->rccInvite.mRtpRate = rate;
@@ -153,7 +176,8 @@ bool RccUserAgent::sendMessageAccept(const char * rtpIP, unsigned short rtpPort,
 
 	RccMessage* msg = (RccMessage*)data;
 	msg->mType = RccMessage::CALL_ACCEPT;
-	msg->rccAccept.mRtpIP = inet_addr(rtpIP);// ntohl(inet_addr(rtpIP));
+	//msg->rccAccept.mRtpIP = inet_addr(rtpIP);// ntohl(inet_addr(rtpIP));
+	strncpy(msg->rccInvite.mRtpIP, rtpIP, RccMessage::IP_STR_SIZE);
 	msg->rccAccept.mRtpPort = rtpPort;
 	msg->rccAccept.mRtpPayload = payload;
 	msg->rccAccept.mRtpRate = rate;

@@ -92,8 +92,8 @@ const Codec Codec::G722_8000("G722", 9, 8000);
 CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_SIPCLIENTRCCDUMMY_DIALOG, pParent)
 	, localNum_(_T("1001"))
-//	, remoteNum_(_T("1000"))
-	, remoteNum_(_T("9664"))
+	, remoteNum_(_T("1000"))
+//	, remoteNum_(_T("9664"))
 	, rtpIP_("10.10.3.100")
 	, rtpPort_(24680)
 //	, rtpPayload_(0)		//"ULaw"
@@ -206,20 +206,39 @@ bool CSipClientRccDummyDlg::checkForRcc()
 void CSipClientRccDummyDlg::thread()
 {
 	Buffer tmpBuf;
+	fd_set fdset;
+	struct timeval rttprev = { 0,0 }, rtt, tv;
+	SOCKET sock1, sock2;
+	rtpSession_.GetRTPSocket(&sock1);
+	rtpSession_.GetRTCPSocket(&sock2);
+
 	while (!isShutdown())
 	{
 		if (!checkForRcc() && !audioWrite_.isStart())
-			Sleep(100);
+			Sleep(20);
 
 		if (audioWrite_.isStart())
 		{
-			rtpSession_.PollData();
+			tv.tv_sec = 0;
+			tv.tv_usec = 10000;
+			FD_ZERO(&fdset);
+			FD_SET(sock1, &fdset);
+			FD_SET(sock2, &fdset);
+			FD_SET(0, &fdset); // check for keypress
 
+			select(FD_SETSIZE, &fdset, NULL, NULL, &tv);
+			if (!FD_ISSET(0, &fdset))
+				continue;
+
+			rtpSession_.PollData();
 			// check incoming packets
 			if (rtpSession_.GotoFirstSourceWithData())
 			{
 				do
 				{
+					RTPSourceData *srcdat;
+					srcdat = rtpSession_.GetCurrentSourceInfo();
+					rtt = srcdat->INF_GetRoundTripTime();
 					RTPPacket *pack;
 					while ((pack = rtpSession_.GetNextPacket()) != NULL)
 					{
@@ -229,12 +248,20 @@ void CSipClientRccDummyDlg::thread()
 
 						if (pack->GetPayloadType() == rtpPayload_ && len > 0)	//is alaw?
 						{
+							
+							//tmpBuf.pushBack(data, len, true);
+							TRACE("RTPPacket len=%d\n", len);
 							tmpBuf.pushBack(len*2, true);
 							short* s16 = (short*)tmpBuf.beginRead();
 							for (int j = 0; j<len; j++)
 								s16[j] = alaw_to_s16(data[j]);
+							
 							audioWrite_.inputPcm(tmpBuf.beginRead(), tmpBuf.readableBytes());
 							tmpBuf.erase();
+						}
+						else
+						{
+							int a = 1;
 						}
 
 						// we don't longer need the packet, so
@@ -259,31 +286,24 @@ void CSipClientRccDummyDlg::OnOK()
 		switch (msg->mType)
 		{
 		case RccMessage::CALL_ACCEPT:
-		{
-			struct in_addr addr;
-			memcpy(&addr, &msg->rccAccept.mRtpIP, 4);
-			str.Format("应答：RTP(%s:%d), codec(%d, %d)", inet_ntoa(addr), msg->rccAccept.mRtpPort, msg->rccAccept.mRtpPayload, msg->rccAccept.mRtpRate);
+			str.Format("应答：RTP(%s:%d), codec(%d, %d)", msg->rccAccept.mRtpIP, msg->rccAccept.mRtpPort, msg->rccAccept.mRtpPayload, msg->rccAccept.mRtpRate);
 			remoteRtpIP_ = msg->rccAccept.mRtpIP;
 			remoteRtpPort_ = msg->rccAccept.mRtpPort;
 			remoteRtpPayload_ = msg->rccAccept.mRtpPayload;
 			remoteRtpRate_ = msg->rccAccept.mRtpRate;
 			break;
-		}
 		case RccMessage::CALL_INVITE:
-		{
-			struct in_addr addr;
-			memcpy(&addr, &msg->rccInvite.mRtpIP, 4);
-			str.Format("来电：%s, RTP(%s:%d), codec(%d, %d)", msg->rccInvite.mCallNum, inet_ntoa(addr), msg->rccInvite.mRtpPort, msg->rccInvite.mRtpPayload, msg->rccInvite.mRtpRate);
+			str.Format("来电：%s, RTP(%s:%d), codec(%d, %d)", msg->rccInvite.mCallNum, msg->rccInvite.mRtpIP, msg->rccInvite.mRtpPort, msg->rccInvite.mRtpPayload, msg->rccInvite.mRtpRate);
 			remoteRtpIP_ = msg->rccAccept.mRtpIP;
 			remoteRtpPort_ = msg->rccAccept.mRtpPort;
 			remoteRtpPayload_ = msg->rccAccept.mRtpPayload;
 			remoteRtpRate_ = msg->rccAccept.mRtpRate;
 			break;
-		}
 		case RccMessage::CALL_CONNECTED:
 			str = "通话中......";
-			rtpSession_.AddDestination(ntohl(remoteRtpIP_), remoteRtpPort_);
-			audioWrite_.start(remoteRtpRate_);
+			rtpSession_.AddDestination(ntohl(inet_addr(remoteRtpIP_.begin())), remoteRtpPort_);
+			rtpSession_.SetTimestampUnit(1.0 / remoteRtpRate_);
+			audioWrite_.start(remoteRtpRate_, &rtpSession_);
 			break;
 		case RccMessage::CALL_CLOSE:
 			audioWrite_.stop();

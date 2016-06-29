@@ -44,8 +44,8 @@ public:
 
    void checkForRcc();
    void registerSession(const char* num);
-   bool openSession(const char* target, UInt32 rtpIP, unsigned short rtpPort, unsigned char payload, UInt32 rate);
-   void acceptSession(UInt32 rtpIP, unsigned short rtpPort, unsigned char payload, UInt32 rate);
+   bool openSession(const char* target, const char * rtpIP, unsigned short rtpPort, unsigned char payload, UInt32 rate);
+   void acceptSession(const char * rtpIP, unsigned short rtpPort, unsigned char payload, UInt32 rate);
    void closeSession();
 
    DialogUsageManager& getDialogUsageManager() { return *mDum; }

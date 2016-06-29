@@ -68,7 +68,7 @@ protected:
 	unsigned char rtpPayload_;
 	unsigned int rtpRate_;
 
-	UInt32 remoteRtpIP_;
+	resip::Data remoteRtpIP_;
 	unsigned short remoteRtpPort_;
 	unsigned char remoteRtpPayload_;
 	unsigned int remoteRtpRate_;

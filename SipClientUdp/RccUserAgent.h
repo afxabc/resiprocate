@@ -45,6 +45,9 @@ public:
 
 	unsigned char mType;
 	mutable short mSize;
+		
+	static const int IP_STR_SIZE = 18;
+
 	//以下消息需要附加数据
 	union 
 	{
@@ -55,7 +58,7 @@ public:
 
 		struct RccInvite
 		{
-			unsigned int mRtpIP;					//rtp地址
+			mutable char mRtpIP[IP_STR_SIZE+1];		//rtp地址
 			mutable unsigned short mRtpPort;		//rtp端口
 			unsigned char mRtpPayload;				//rtp编码类型
 			mutable unsigned int mRtpRate;			//rtp码率
@@ -64,7 +67,7 @@ public:
 
 		struct RccAccept
 		{
-			unsigned int mRtpIP;
+			mutable char mRtpIP[IP_STR_SIZE+1];
 			mutable unsigned short mRtpPort;
 			unsigned char mRtpPayload;
 			mutable unsigned int mRtpRate;

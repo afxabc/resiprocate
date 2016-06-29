@@ -9,6 +9,7 @@
 #pragma comment(lib, "dsound.lib")
 #pragma comment(lib,"dxguid.lib")
 
+class RTPSession;
 //ÉùÒô²¥·Å£ºÉù¿¨ÑïÉùÆ÷
 class AudioWrite : public resip::ThreadIf
 {
@@ -17,7 +18,7 @@ public:
 	~AudioWrite();
 
 public:
-	bool start(UINT rate);
+	bool start(UINT rate, RTPSession* session);
 	void stop();
 	void inputPcm(const char* data, int len);
 
@@ -40,6 +41,9 @@ private:
 	UINT bufferNotifySize_;
 	Buffer recvBuff_;
 	Queue<Buffer> playQueue_;
+
+public:
+	RTPSession* pSession_;
 };
 
 

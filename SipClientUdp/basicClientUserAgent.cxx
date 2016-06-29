@@ -427,7 +427,7 @@ void resip::BasicClientUserAgent::registerSession(const char* num)
 	mDum->send(mDum->makeRegistration(sipUri));
 }
 
-bool resip::BasicClientUserAgent::openSession(const char * num, UInt32 rtpIP, unsigned short rtpPort, unsigned char payload, UInt32 rate)
+bool resip::BasicClientUserAgent::openSession(const char * num, const char * rtpIP, unsigned short rtpPort, unsigned char payload, UInt32 rate)
 {
 	Data sToURI = makeValidUri(num);
 		
@@ -449,7 +449,7 @@ void resip::BasicClientUserAgent::closeSession()
 	}
 }
 
-void resip::BasicClientUserAgent::acceptSession(UInt32 rtpIP, unsigned short rtpPort, unsigned char payload, UInt32 rate)
+void resip::BasicClientUserAgent::acceptSession(const char * rtpIP, unsigned short rtpPort, unsigned char payload, UInt32 rate)
 {
 	std::set<BasicClientCall*>::iterator it = mCallList.begin();
 	if (it != mCallList.end())

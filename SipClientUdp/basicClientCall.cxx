@@ -69,7 +69,7 @@ class CallTimer : public resip::DumCommand
 
 BasicClientCall::BasicClientCall(BasicClientUserAgent& userAgent) : 
 	AppDialogSet(userAgent.getDialogUsageManager()),
-	mRtpIP(0), 
+	mRtpIP("0.0.0.0"), 
 	mRtpPort(0),
 	mRtpPayload(0),
 	mRtpRate(8000),
@@ -89,7 +89,6 @@ BasicClientCall::~BasicClientCall()
 
 void BasicClientCall::makeOffer(SdpContents& offer)
 {
-	assert(mRtpIP > 0);
 	assert(mRtpPort > 0);
 
 	static Data txt("v=0\r\n"
@@ -114,15 +113,13 @@ void BasicClientCall::makeOffer(SdpContents& offer)
 	offerSdp.session().origin().getSessionId() = currentTime;
 	offerSdp.session().origin().getVersion() = currentTime;
 
-	struct in_addr addr;
-	memcpy(&addr, &mRtpIP, 4);
-	offerSdp.session().origin().setAddress(inet_ntoa(addr));
-	offerSdp.session().connection().setAddress(inet_ntoa(addr));
+	offerSdp.session().origin().setAddress(mRtpIP);
+	offerSdp.session().connection().setAddress(mRtpIP);
 
 	offer = offerSdp;
 }
 
-void BasicClientCall::makeOffer(SdpContents& offer, UInt32 rtpip, unsigned short rtpport, unsigned char payload, UInt32 rate)
+void BasicClientCall::makeOffer(SdpContents& offer, const char * rtpip, unsigned short rtpport, unsigned char payload, UInt32 rate)
 {
 	mRtpIP = rtpip;
 	mRtpPort = rtpport;
@@ -133,7 +130,7 @@ void BasicClientCall::makeOffer(SdpContents& offer, UInt32 rtpip, unsigned short
 }
 
 void 
-BasicClientCall::initiateCall(const Uri& target, UInt32 rtpip, unsigned short rtpport, unsigned char payload, UInt32 rate, SharedPtr<UserProfile> profile)
+BasicClientCall::initiateCall(const Uri& target, const char * rtpip, unsigned short rtpport, unsigned char payload, UInt32 rate, SharedPtr<UserProfile> profile)
 {
 	SdpContents offerSdp;
 	makeOffer(offerSdp, rtpip, rtpport, payload, rate);
@@ -143,7 +140,7 @@ BasicClientCall::initiateCall(const Uri& target, UInt32 rtpip, unsigned short rt
 	mPlacedCall = true;
 }
 
-void resip::BasicClientCall::acceptCall(UInt32 rtpip, unsigned short rtpport, unsigned char payload, UInt32 rate)
+void resip::BasicClientCall::acceptCall(const char * rtpip, unsigned short rtpport, unsigned char payload, UInt32 rate)
 {
 	if (!mInviteSessionHandle.isValid())
 		return;

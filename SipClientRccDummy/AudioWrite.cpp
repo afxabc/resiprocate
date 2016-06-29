@@ -1,5 +1,7 @@
 #include "stdafx.h"
 #include "AudioWrite.h"
+#include "jrtplib\rtpsession.h"
+#include "jrtplib\rtppacket.h"
 
 
 AudioWrite::AudioWrite()
@@ -19,8 +21,11 @@ AudioWrite::~AudioWrite()
 	lpDSound_->Release();
 }
 
-bool AudioWrite::start(UINT rate)
+bool AudioWrite::start(UINT rate, RTPSession* session)
 {
+	pSession_ = session;
+	stop();
+
 	HRESULT hr = lpDSound_->SetCooperativeLevel(GetDesktopWindow(), DSSCL_PRIORITY);
 	if (FAILED(hr))
 	{
@@ -44,14 +49,16 @@ bool AudioWrite::start(UINT rate)
 	fmtWave_.nSamplesPerSec = rate;
 	fmtWave_.wBitsPerSample = 16;
 
-	int delay = 100; //ms
+	int delay = 100; //100msª∫¥Ê
 	bufferNotifySize_ = fmtWave_.nAvgBytesPerSec*delay / 1000;
 
 	//¥¥Ω®∏®÷˙ª∫≥Â«¯∂‘œÛ
 	DSBUFFERDESC dsbd;
 	ZeroMemory(&dsbd, sizeof(DSBUFFERDESC));
 	dsbd.dwSize = sizeof(DSBUFFERDESC);
-	dsbd.dwFlags = DSBCAPS_GLOBALFOCUS | DSBCAPS_CTRLFX | DSBCAPS_CTRLPOSITIONNOTIFY | DSBCAPS_GETCURRENTPOSITION2;
+	dsbd.dwFlags =
+		DSBCAPS_GLOBALFOCUS | DSBCAPS_CTRLFX | DSBCAPS_CTRLPOSITIONNOTIFY | DSBCAPS_GETCURRENTPOSITION2 | 
+		DSBCAPS_CTRLPAN | DSBCAPS_CTRLVOLUME | DSBCAPS_CTRLFREQUENCY;
 	dsbd.dwBufferBytes = bufferNotifySize_*MAX_AUDIO_BUF;	//((alaw_)?playSpan_*2:playSpan_); 
 	dsbd.lpwfxFormat = &fmtWave_;
 
@@ -117,23 +124,68 @@ void AudioWrite::inputPcm(const char * data, int len)
 			recvBuff_.erase();
 		return;
 	}
-		
+	
+	int matchSize = bufferNotifySize_;
 	recvBuff_.pushBack(data, len, true);
-	if (recvBuff_.readableBytes() < bufferNotifySize_)
+	if (recvBuff_.readableBytes() < matchSize)
 		return;
 
 	Buffer tmp;
 	BYTE* buf = (BYTE*)recvBuff_.beginRead();
-	tmp.pushBack((char*)buf, bufferNotifySize_);
+	tmp.pushBack((char*)buf, matchSize);
 	playQueue_.putBack(tmp);
 
-	recvBuff_.eraseFront(bufferNotifySize_);
+	recvBuff_.eraseFront(matchSize);
 }
+
+int WINAPI alaw_to_s16(unsigned char a_val);
+static void CALLBACK TimerProc(UINT uiID, UINT uiMsg, DWORD dwUser, DWORD dw1, DWORD dw2)
+{
+	AudioWrite* pThis = (AudioWrite*)dwUser;
+	if (pThis == NULL)
+		return;
+	/*
+	RTPSession& rtpSession_ = *(pThis->pSession_);
+	rtpSession_.PollData();
+
+	// check incoming packets
+	if (rtpSession_.GotoFirstSourceWithData())
+	{
+		Buffer tmpBuf;
+		do
+		{
+			RTPPacket *pack;
+			while ((pack = rtpSession_.GetNextPacket()) != NULL)
+			{
+				// You can examine the data here
+				char* data = (char*)pack->GetPayload();
+				int len = pack->GetPayloadLength();
+
+				if (len > 0)	//is alaw?
+				{
+
+					//tmpBuf.pushBack(data, len, true);
+
+					tmpBuf.pushBack(len * 2, true);
+					short* s16 = (short*)tmpBuf.beginRead();
+					for (int j = 0; j<len; j++)
+						s16[j] = alaw_to_s16(data[j]);
+
+					pThis->inputPcm(tmpBuf.beginRead(), tmpBuf.readableBytes());
+					tmpBuf.erase();
+				}
+
+				// we don't longer need the packet, so
+				// we'll delete it
+				delete pack;
+			}
+		} while (rtpSession_.GotoNextSourceWithData());
+	}*/
+}
+
 
 void AudioWrite::thread()
 {
-	int delay = 100; //ms
-	
 	//…Ë÷√Ã·–—
 
 	DSBPOSITIONNOTIFY DSBPositionNotify[MAX_AUDIO_BUF];
@@ -158,6 +210,8 @@ void AudioWrite::thread()
 	mute_ = false;
 	mShutdown = false;
 
+	MMRESULT mRes = ::timeSetEvent(10, 0, &TimerProc, (DWORD)this, TIME_PERIODIC);
+
 	while (!mShutdown)
 	{
 		if (mute_)
@@ -166,8 +220,17 @@ void AudioWrite::thread()
 		if (!playQueue_.getFront(tmp))
 		{
 			tmp.erase();
-			tmp.pushBack(0x80, bufferNotifySize_, true);		//æ≤“Ù
+			tmp.pushBack((unsigned char)0, bufferNotifySize_, true);		//æ≤“Ù
 		}
+	/*	else
+		{
+			Buffer tmpBuf;
+			tmpBuf.pushBack(tmp.readableBytes()*2, true);
+			short* s16 = (short*)tmpBuf.beginRead();
+			for (int j = 0; j<tmp.readableBytes(); j++)
+			s16[j] = alaw_to_s16((tmp.beginRead())[j]);
+			tmp = tmpBuf;
+		}*/
 
 		if ((obj >= WAIT_OBJECT_0) && (obj < WAIT_OBJECT_0 + MAX_AUDIO_BUF))
 		{
@@ -175,6 +238,7 @@ void AudioWrite::thread()
 			memcpy(buf, tmp.beginRead(), tmp.readableBytes());
 			pDSB8_->Unlock(buf, buf_len, NULL, 0);
 
+			assert(buf_len == bufferNotifySize_);
 			offset += buf_len;
 			offset %= (bufferNotifySize_*MAX_AUDIO_BUF);
 		}
@@ -188,4 +252,7 @@ void AudioWrite::thread()
 
 	for (int i = 0; i<MAX_AUDIO_BUF; i++)
 		CloseHandle(ev[i]);
+
+
+	mRes = ::timeKillEvent(mRes);
 }
