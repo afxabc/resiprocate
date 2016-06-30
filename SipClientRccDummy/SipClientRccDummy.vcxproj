@@ -98,7 +98,7 @@
       <SubSystem>Windows</SubSystem>
       <AdditionalDependencies>jrtplib.lib;rutil.lib;ares.lib;winmm.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\Win32\Debug;$(OutDir)</AdditionalLibraryDirectories>
-      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
+      <UACExecutionLevel>AsInvoker</UACExecutionLevel>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>

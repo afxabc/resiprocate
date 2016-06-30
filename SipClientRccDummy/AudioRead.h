@@ -38,7 +38,7 @@ private:
 	virtual void thread() override;
 
 private:
-	static const int MAX_AUDIO_BUF = 3;
+	static const int MAX_AUDIO_BUF = 4;
 
 	WAVEFORMATEX fmtWave_;
 	LPDIRECTSOUNDCAPTURE8 lpDSCapture_;
