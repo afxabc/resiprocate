@@ -39,7 +39,7 @@ void AudioRead::enumDevices()
 	HRESULT hr = DirectSoundCaptureEnumerate((LPDSENUMCALLBACK)DSEnumProc, (VOID*)this);
 }
 
-bool AudioRead::start(UINT rate)
+bool AudioRead::start(UINT rate, int ptime)
 {
 	stop();
 
@@ -51,14 +51,13 @@ bool AudioRead::start(UINT rate)
 	fmtWave_.nSamplesPerSec = rate;
 	fmtWave_.wBitsPerSample = 16;
 
-	int delay = 100; //100ms缓存
-	bufferNotifySize_ = fmtWave_.nAvgBytesPerSec*delay / 1000;
+	bufferNotifySize_ = fmtWave_.nAvgBytesPerSec*ptime / 1000;
 
 	//创建辅助缓冲区对象
 	DSCBUFFERDESC dscbd;
 	dscbd.dwSize = sizeof(DSCBUFFERDESC);
-	dscbd.dwFlags = 0;
-	dscbd.dwBufferBytes = fmtWave_.nAvgBytesPerSec;
+	dscbd.dwFlags = DSCBCAPS_CTRLFX;
+	dscbd.dwBufferBytes = bufferNotifySize_*MAX_AUDIO_BUF;// fmtWave_.nAvgBytesPerSec;
 	dscbd.dwReserved = 0;
 	dscbd.lpwfxFormat = &fmtWave_; //设置录音用的wave格式
 	dscbd.dwFXCount = 0;
@@ -125,7 +124,7 @@ void AudioRead::thread()
 	HANDLE ev[MAX_AUDIO_BUF];
 	for (int i = 0; i<MAX_AUDIO_BUF; i++)
 	{
-		DSBPositionNotify[i].dwOffset = i*bufferNotifySize_ + bufferNotifySize_ - 1;
+		DSBPositionNotify[i].dwOffset = (i+1)*bufferNotifySize_-1;
 		ev[i] = CreateEvent(NULL, FALSE, FALSE, NULL);
 		DSBPositionNotify[i].hEventNotify = ev[i];
 	}
@@ -151,15 +150,9 @@ void AudioRead::thread()
 		if ((obj < WAIT_OBJECT_0) || (obj >= WAIT_OBJECT_0 + MAX_AUDIO_BUF))
 			continue;
 
-		static UINT startTick = ::GetTickCount();
-		UINT curTick = ::GetTickCount();
-		TRACE("%d %d\n", curTick - startTick, bufferNotifySize_);
-		startTick = curTick;
-
-		
-		int id = obj - WAIT_OBJECT_0;
 ///		TRACE("DSBPositionNotify[%d].dwOffset=%d\n", id, DSBPositionNotify[id].dwOffset);
 //		TRACE("dwCapturePos=%d, dwReadPos=%d\n", dwCapturePos, dwReadPos);
+
 		pDSB8_->Lock(offset, bufferNotifySize_, &buf, &buf_len, NULL, NULL, 0);
 		if (callback_)
 			callback_->outputPcm((char*)buf, buf_len);
@@ -168,7 +161,6 @@ void AudioRead::thread()
 		assert(buf_len == bufferNotifySize_);
 
 		offset = (offset+buf_len)%(bufferNotifySize_*MAX_AUDIO_BUF);
-		
 	}
 
 	pDSB8_->Stop();

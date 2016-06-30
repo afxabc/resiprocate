@@ -9,6 +9,7 @@ AudioWrite::AudioWrite()
 	, pDSB8_(NULL)
 	, pDSN_(NULL)
 	, mute_(false)
+	, ptime_(40)
 {
 	HRESULT hr = DirectSoundCreate8(NULL, &lpDSound_, NULL);
 	mShutdown = true;
@@ -21,10 +22,11 @@ AudioWrite::~AudioWrite()
 	lpDSound_->Release();
 }
 
-bool AudioWrite::start(UINT rate, RTPSession* session)
+bool AudioWrite::start(UINT rate, int ptime)
 {
-	pSession_ = session;
 	stop();
+
+	ptime_ = ptime;
 
 	HRESULT hr = lpDSound_->SetCooperativeLevel(GetDesktopWindow(), DSSCL_PRIORITY);
 	if (FAILED(hr))
@@ -49,8 +51,7 @@ bool AudioWrite::start(UINT rate, RTPSession* session)
 	fmtWave_.nSamplesPerSec = rate;
 	fmtWave_.wBitsPerSample = 16;
 
-	int delay = 100; //100msª∫¥Ê
-	bufferNotifySize_ = fmtWave_.nAvgBytesPerSec*delay / 1000;
+	bufferNotifySize_ = fmtWave_.nAvgBytesPerSec*ptime / 1000;
 
 	//¥¥Ω®∏®÷˙ª∫≥Â«¯∂‘œÛ
 	DSBUFFERDESC dsbd;
@@ -72,7 +73,8 @@ bool AudioWrite::start(UINT rate, RTPSession* session)
 	{
 		if (FAILED(hr = lpDSound_->CreateSoundBuffer(&dsbd, &pDSB, NULL)))
 		{
-			TRACE("CreateSoundBuffer failed %X \n", hr);
+			TRACE("CreateSoundBuffer failed 0x%X \n", hr);
+			hr = E_INVALIDARG;
 			break;
 		}
 		if (FAILED(hr = pDSB->QueryInterface(IID_IDirectSoundBuffer8, (LPVOID*)&pDSB8_)))
@@ -133,56 +135,10 @@ void AudioWrite::inputPcm(const char * data, int len)
 	Buffer tmp;
 	BYTE* buf = (BYTE*)recvBuff_.beginRead();
 	tmp.pushBack((char*)buf, matchSize);
-//	playQueue_.putBack(tmp);
+	playQueue_.putBack(tmp);
 
 	recvBuff_.eraseFront(matchSize);
 }
-
-int WINAPI alaw_to_s16(unsigned char a_val);
-static void CALLBACK TimerProc(UINT uiID, UINT uiMsg, DWORD dwUser, DWORD dw1, DWORD dw2)
-{
-	AudioWrite* pThis = (AudioWrite*)dwUser;
-	if (pThis == NULL)
-		return;
-	/*
-	RTPSession& rtpSession_ = *(pThis->pSession_);
-	rtpSession_.PollData();
-
-	// check incoming packets
-	if (rtpSession_.GotoFirstSourceWithData())
-	{
-		Buffer tmpBuf;
-		do
-		{
-			RTPPacket *pack;
-			while ((pack = rtpSession_.GetNextPacket()) != NULL)
-			{
-				// You can examine the data here
-				char* data = (char*)pack->GetPayload();
-				int len = pack->GetPayloadLength();
-
-				if (len > 0)	//is alaw?
-				{
-
-					//tmpBuf.pushBack(data, len, true);
-
-					tmpBuf.pushBack(len * 2, true);
-					short* s16 = (short*)tmpBuf.beginRead();
-					for (int j = 0; j<len; j++)
-						s16[j] = alaw_to_s16(data[j]);
-
-					pThis->inputPcm(tmpBuf.beginRead(), tmpBuf.readableBytes());
-					tmpBuf.erase();
-				}
-
-				// we don't longer need the packet, so
-				// we'll delete it
-				delete pack;
-			}
-		} while (rtpSession_.GotoNextSourceWithData());
-	}*/
-}
-
 
 void AudioWrite::thread()
 {
@@ -204,45 +160,45 @@ void AudioWrite::thread()
 	LPVOID buf = NULL;
 	DWORD  buf_len = 0;
 	DWORD obj = WAIT_OBJECT_0;
-	DWORD offset = bufferNotifySize_;
+	DWORD offset = bufferNotifySize_*2;
 	Buffer tmp;
 
 	mute_ = false;
 	mShutdown = false;
 
-	MMRESULT mRes = ::timeSetEvent(10, 0, &TimerProc, (DWORD)this, TIME_PERIODIC);
-
+	bool empty = false;
 	while (!mShutdown)
 	{
-		if (mute_)
-			playQueue_.clear();
-
-		if (!playQueue_.getFront(tmp))
+	/*	if (!playQueue_.getFront(tmp, ptime_))
 		{
 			tmp.erase();
 			tmp.pushBack((unsigned char)0, bufferNotifySize_, true);		//æ≤“Ù
-		}
-	/*	else
-		{
-			Buffer tmpBuf;
-			tmpBuf.pushBack(tmp.readableBytes()*2, true);
-			short* s16 = (short*)tmpBuf.beginRead();
-			for (int j = 0; j<tmp.readableBytes(); j++)
-			s16[j] = alaw_to_s16((tmp.beginRead())[j]);
-			tmp = tmpBuf;
 		}*/
-
-		if ((obj >= WAIT_OBJECT_0) && (obj < WAIT_OBJECT_0 + MAX_AUDIO_BUF))
-		{
-			pDSB8_->Lock(offset, bufferNotifySize_, &buf, &buf_len, NULL, NULL, 0);
-			memcpy(buf, tmp.beginRead(), tmp.readableBytes());
-			pDSB8_->Unlock(buf, buf_len, NULL, 0);
-
-			assert(buf_len == bufferNotifySize_);
-			offset += buf_len;
-			offset %= (bufferNotifySize_*MAX_AUDIO_BUF);
-		}
 		obj = WaitForMultipleObjects(MAX_AUDIO_BUF, ev, FALSE, INFINITE);
+		if ((obj < WAIT_OBJECT_0) || (obj >= WAIT_OBJECT_0 + MAX_AUDIO_BUF))
+			continue;
+
+		if (mute_)
+			playQueue_.clear();
+
+		tmp.erase();
+		while (playQueue_.size() > 0)
+		{
+			playQueue_.getFront(tmp);
+		}
+		if (tmp.readableBytes() == 0)
+			tmp.pushBack((unsigned char)0, bufferNotifySize_, true);		//æ≤“Ù
+		
+		if (FAILED(pDSB8_->Lock(offset, bufferNotifySize_, &buf, &buf_len, NULL, NULL, 0)))
+		{
+			TRACE("Lock in %d failed !!\n", offset);
+			continue;
+		}
+		memcpy(buf, tmp.beginRead(), tmp.readableBytes());
+		pDSB8_->Unlock(buf, buf_len, NULL, 0);
+
+		assert(buf_len == bufferNotifySize_);
+		offset = (offset+buf_len)%(bufferNotifySize_*MAX_AUDIO_BUF);
 	}
 
 	pDSB8_->Stop();
@@ -253,6 +209,4 @@ void AudioWrite::thread()
 	for (int i = 0; i<MAX_AUDIO_BUF; i++)
 		CloseHandle(ev[i]);
 
-
-	mRes = ::timeKillEvent(mRes);
 }

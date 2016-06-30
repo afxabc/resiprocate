@@ -98,7 +98,7 @@
       <SubSystem>Windows</SubSystem>
       <AdditionalDependencies>jrtplib.lib;rutil.lib;ares.lib;winmm.lib</AdditionalDependencies>
       <AdditionalLibraryDirectories>..\Win32\Debug;$(OutDir)</AdditionalLibraryDirectories>
-      <UACExecutionLevel>RequireAdministrator</UACExecutionLevel>
+      <UACExecutionLevel>AsInvoker</UACExecutionLevel>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
@@ -190,6 +190,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\SipClientUdp\RccUserAgent.h" />
+    <ClInclude Include="AudioFile.h" />
     <ClInclude Include="AudioRead.h" />
     <ClInclude Include="AudioWrite.h" />
     <ClInclude Include="buffer.h" />
@@ -205,6 +206,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\SipClientUdp\RccUserAgent.cpp" />
+    <ClCompile Include="AudioFile.cpp" />
     <ClCompile Include="AudioRead.cpp" />
     <ClCompile Include="AudioWrite.cpp" />
     <ClCompile Include="buffer.cpp" />
@@ -227,6 +229,9 @@
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\SipClientRccDummy.ico" />
+  </ItemGroup>
+  <ItemGroup>
+    <Media Include="res\8000.wav" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
