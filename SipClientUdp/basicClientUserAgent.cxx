@@ -295,40 +295,12 @@ void resip::BasicClientUserAgent::thread()
 	mShutdown = false;
 	while (!mShutdown)
 	{
-		if (mDumShutdownRequested)
-		{
-			// unregister
-			if (mRegHandle.isValid())
-			{
-				mRegHandle->end();
-			}
-
-			// end any subscriptions
-			if (mServerSubscriptionHandle.isValid())
-			{
-				mServerSubscriptionHandle->end();
-			}
-			if (mClientSubscriptionHandle.isValid())
-			{
-				mClientSubscriptionHandle->end();
-			}
-
-			// End all calls - copy list in case delete/unregister of call is immediate
-			std::set<BasicClientCall*> tempCallList = mCallList;
-			std::set<BasicClientCall*>::iterator it = tempCallList.begin();
-			for (; it != tempCallList.end(); it++)
-			{
-				(*it)->terminateCall();
-			}
-
-			mDum->shutdown(this);
-		}
-		else
-		{
-			mDum->process(100);
-			checkForRcc();
-		}
+		mDum->process(100);
+		checkForRcc();
 	}
+	// unregister
+	unRegisterSession();
+	mDum->shutdown(this);
 }
 
 bool BasicClientUserAgent::start(const char * sipHost, const char * passwd, unsigned short rccPort, const char * rccIP, unsigned short sipPort)
@@ -390,6 +362,9 @@ void resip::BasicClientUserAgent::checkForRcc()
 	case RccMessage::CALL_REGISTER:
 		registerSession(msg->rccRegister.mCallNum);
 		break;
+	case RccMessage::CALL_UNREGISTER:
+		unRegisterSession();
+		break;
 	case RccMessage::CALL_INVITE:
 		openSession(msg->rccInvite.mCallNum, msg->rccInvite.mRtpIP, msg->rccInvite.mRtpPort, msg->rccInvite.mRtpPayload, msg->rccInvite.mRtpRate);
 		break;
@@ -425,6 +400,27 @@ void resip::BasicClientUserAgent::registerSession(const char* num)
 
 	InfoLog(<< "register for " << sipUri);
 	mDum->send(mDum->makeRegistration(sipUri));
+}
+
+void resip::BasicClientUserAgent::unRegisterSession()
+{
+	closeSession();
+	// unregister
+	if (mRegHandle.isValid())
+	{
+		mRegHandle->end();
+	}
+
+	// end any subscriptions
+	if (mServerSubscriptionHandle.isValid())
+	{
+		mServerSubscriptionHandle->end();
+	}
+	if (mClientSubscriptionHandle.isValid())
+	{
+		mClientSubscriptionHandle->end();
+	}
+
 }
 
 bool resip::BasicClientUserAgent::openSession(const char * num, const char * rtpIP, unsigned short rtpPort, unsigned char payload, UInt32 rate)
@@ -596,7 +592,7 @@ BasicClientUserAgent::onSuccess(ClientRegistrationHandle h, const SipMessage& ms
 	mRegHandle = h;
 	mRegistrationRetryDelayTime = 0;  // reset
 
-	mRccAgent.sendMessage(RccMessage::CALL_REG_OK);
+	mRccAgent.sendMessageResult(true, RccMessage::CALL_REGISTER);
 }
 
 void
@@ -608,7 +604,7 @@ BasicClientUserAgent::onFailure(ClientRegistrationHandle h, const SipMessage& ms
    {
        h->end();
    }
-	mRccAgent.sendMessage(RccMessage::CALL_REG_FAILED);
+   mRccAgent.sendMessageResult(false, RccMessage::CALL_REGISTER);
 }
 
 void
@@ -616,6 +612,7 @@ BasicClientUserAgent::onRemoved(ClientRegistrationHandle h, const SipMessage&msg
 {
    InfoLog(<< "onRemoved(ClientRegistrationHandle): msg=" << msg.brief());
    mRegHandle = h;
+   mRccAgent.sendMessageResult(true, RccMessage::CALL_UNREGISTER);
 }
 
 int 

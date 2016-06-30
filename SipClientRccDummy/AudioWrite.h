@@ -39,6 +39,7 @@ private:
 
 	bool mute_;
 	UINT bufferNotifySize_;
+	resip::Mutex mutex_;
 	Buffer recvBuff_;
 	Queue<Buffer> playQueue_;
 

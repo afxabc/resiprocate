@@ -124,7 +124,7 @@ void AudioWrite::inputPcm(const char * data, int len)
 			recvBuff_.erase();
 		return;
 	}
-	
+
 	int matchSize = bufferNotifySize_;
 	recvBuff_.pushBack(data, len, true);
 	if (recvBuff_.readableBytes() < matchSize)
@@ -133,7 +133,7 @@ void AudioWrite::inputPcm(const char * data, int len)
 	Buffer tmp;
 	BYTE* buf = (BYTE*)recvBuff_.beginRead();
 	tmp.pushBack((char*)buf, matchSize);
-	playQueue_.putBack(tmp);
+//	playQueue_.putBack(tmp);
 
 	recvBuff_.eraseFront(matchSize);
 }

@@ -44,6 +44,7 @@ public:
 
    void checkForRcc();
    void registerSession(const char* num);
+   void unRegisterSession();
    bool openSession(const char* target, const char * rtpIP, unsigned short rtpPort, unsigned char payload, UInt32 rate);
    void acceptSession(const char * rtpIP, unsigned short rtpPort, unsigned char payload, UInt32 rate);
    void closeSession();

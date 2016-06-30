@@ -129,6 +129,14 @@ bool RccUserAgent::sendMessage(RccMessage::MessageType type)
 	return sendMessage(msg);
 }
 
+bool RccUserAgent::sendMessageResult(bool ok, RccMessage::MessageType which)
+{
+	RccMessage msg;
+	msg.mType = RccMessage::CALL_RESULT;
+	msg.rccResult.which = which;
+	return sendMessage(msg);
+}
+
 bool RccUserAgent::sendMessageRegister(const char * callNumber)
 {
 	if (mSocket == INVALID_SOCKET)

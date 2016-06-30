@@ -21,13 +21,13 @@ struct RccMessage
 	enum MessageType
 	{
 		CALL_REGISTER,
+		CALL_UNREGISTER,
 		CALL_INVITE,
 		CALL_CLOSE,
 		CALL_ACCEPT,
 		CALL_CONNECTED,
-		CALL_REG_OK,
-		CALL_REG_FAILED,
 		CALL_TRYING,
+		CALL_RESULT,
 	};
 
 	RccMessage() : mSize(sizeof(RccMessage)) {}
@@ -78,6 +78,12 @@ public:
 			unsigned char mError;
 			char mReason[1];
 		}rccClose;
+
+		struct RccResult
+		{
+			unsigned char which;		//MessageType
+			bool ok;
+		}rccResult;
 	};
 }
 #ifndef WIN32
@@ -101,6 +107,7 @@ public:
 	bool isValid() { return (mSocket != INVALID_SOCKET); }
 
 	bool sendMessage(RccMessage::MessageType type);
+	bool sendMessageResult(bool ok, RccMessage::MessageType which);
 	bool sendMessageRegister(const char * callNumber);
 	bool sendMessageInvite(const char * callNumber, const char* rtpIP, unsigned short rtpPort, unsigned char payload, unsigned int rate);
 	bool sendMessageAccept(const char* rtpIP, unsigned short rtpPort, unsigned char payload, unsigned int rate);

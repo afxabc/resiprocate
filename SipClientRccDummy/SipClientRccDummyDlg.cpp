@@ -99,6 +99,8 @@ CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 //	, rtpPayload_(0)		//"ULaw"
 	, rtpPayload_(8)		//"ALaw"
 	, rtpRate_(8000)
+	, audioRead_(this)
+	, audioTest_(FALSE)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -109,6 +111,7 @@ void CSipClientRccDummyDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_LOCAL_NUM, localNum_);
 	DDX_Text(pDX, IDC_REMOTE_NUM, remoteNum_);
 	DDX_Control(pDX, IDC_MSG_LIST, msgList_);
+	DDX_Check(pDX, IDC_AUDIO_TEST, audioTest_);
 }
 
 BEGIN_MESSAGE_MAP(CSipClientRccDummyDlg, CDialogEx)
@@ -119,6 +122,7 @@ BEGIN_MESSAGE_MAP(CSipClientRccDummyDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_INVITE, &CSipClientRccDummyDlg::OnBnClickedInvite)
 	ON_BN_CLICKED(IDC_ACCEPT, &CSipClientRccDummyDlg::OnBnClickedAccept)
 	ON_BN_CLICKED(IDC_CLOSECALL, &CSipClientRccDummyDlg::OnBnClickedClosecall)
+	ON_BN_CLICKED(IDC_AUDIO_TEST, &CSipClientRccDummyDlg::OnBnClickedAudioTest)
 END_MESSAGE_MAP()
 
 
@@ -137,6 +141,8 @@ BOOL CSipClientRccDummyDlg::OnInitDialog()
 	int ret = rtpSession_.Create(rtpPort_);
 	rccAgent_.startAgent(21358, NULL, DUMMY_RCC_PORT, "10.10.3.100");
 	this->run();
+
+	audioRead_.enumDevices();
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -275,6 +281,22 @@ void CSipClientRccDummyDlg::thread()
 	}
 }
 
+void CSipClientRccDummyDlg::printRccAck(bool ok, RccMessage::MessageType which, CStringA& str)
+{
+	switch (which)
+	{
+	case RccMessage::CALL_REGISTER:
+		str = "注册";
+		break;
+	case RccMessage::CALL_UNREGISTER:
+		str = "注销";
+		break;
+	default:
+		str = "执行";
+	}
+	str += (ok) ? "成功" : "失败";
+}
+
 void CSipClientRccDummyDlg::OnOK()
 {
 	resip::Data data;
@@ -310,11 +332,8 @@ void CSipClientRccDummyDlg::OnOK()
 			str.Format("结束通话。 (%d)", msg->rccClose.mError);
 			rtpSession_.ClearDestinations();
 			break;
-		case RccMessage::CALL_REG_OK:
-			str = "注册成功。";
-			break;
-		case RccMessage::CALL_REG_FAILED:
-			str = "注册失败！";
+		case RccMessage::CALL_RESULT:
+			printRccAck(msg->rccResult.ok, (RccMessage::MessageType)msg->rccResult.which, str);
 			break;
 		case RccMessage::CALL_TRYING:
 			str = "呼叫中......";
@@ -364,4 +383,34 @@ void CSipClientRccDummyDlg::OnBnClickedClosecall()
 	// TODO: 在此添加控件通知处理程序代码
 	rccAgent_.sendMessageClose();
 	audioWrite_.stop();
+}
+
+
+void CSipClientRccDummyDlg::OnCancel()
+{
+	// TODO: 在此添加专用代码和/或调用基类
+	rccAgent_.sendMessage(RccMessage::CALL_UNREGISTER);
+	Sleep(500);
+	__super::OnCancel();
+}
+
+void CSipClientRccDummyDlg::outputPcm(const char * data, int len)
+{
+	if (audioTest_ && audioWrite_.isStart())
+		audioWrite_.inputPcm(data, len);
+}
+
+void CSipClientRccDummyDlg::OnBnClickedAudioTest()
+{
+	UpdateData();
+	if (audioTest_)
+	{
+		audioWrite_.start(rtpRate_, &rtpSession_);
+		audioRead_.start(rtpRate_);
+	}
+	else
+	{
+		audioWrite_.stop();
+		audioRead_.stop();
+	}
 }

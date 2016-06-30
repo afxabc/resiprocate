@@ -1,15 +1,57 @@
 #pragma once
 
 
-//声音输入：麦克风
-class AudioRead
+#include "rutil\ThreadIf.hxx"
+#include "buffer.h"
+#include "queue.h"
+
+#include <mmsystem.h>
+#include <dsound.h>
+
+#include <vector>
+
+class IAudioReadCallback
 {
 public:
-	AudioRead();
+	virtual void outputPcm(const char* data, int len) = 0;
+};
+
+class RTPSession;
+//声音输入：麦克风
+class AudioRead : public resip::ThreadIf
+{
+public:
+	AudioRead(IAudioReadCallback* callback);
 	~AudioRead();
 
 public:
-	bool start(BYTE payload, UINT rate);
+	void enumDevices();
+
+	bool start(UINT rate);
 	void stop();
+
+	bool isStart() { return !mShutdown; }
+	void setMute(bool mute = true) { mute_ = mute; }
+
+private:
+	// 通过 ThreadIf 继承
+	virtual void thread() override;
+
+private:
+	static const int MAX_AUDIO_BUF = 3;
+
+	WAVEFORMATEX fmtWave_;
+	LPDIRECTSOUNDCAPTURE8 lpDSCapture_;
+	LPDIRECTSOUNDCAPTUREBUFFER8 pDSB8_;
+	LPDIRECTSOUNDNOTIFY pDSN_;
+
+	bool mute_;
+	UINT bufferNotifySize_;
+
+	IAudioReadCallback* callback_;
+
+public:
+	std::vector<GUID> devGuids_;
+	std::vector<CString> devNames_;
 };
 

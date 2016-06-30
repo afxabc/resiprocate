@@ -5,6 +5,7 @@
 #pragma once
 
 #include "queue.h"
+#include "AudioRead.h"
 #include "AudioWrite.h"
 
 #include "jrtplib\rtpsession.h"
@@ -15,7 +16,7 @@
 #include "afxwin.h"
 
 // CSipClientRccDummyDlg 对话框
-class CSipClientRccDummyDlg : public CDialogEx, resip::ThreadIf
+class CSipClientRccDummyDlg : public CDialogEx, resip::ThreadIf, IAudioReadCallback
 {
 // 构造
 public:
@@ -44,12 +45,18 @@ protected:
 	afx_msg void OnBnClickedInvite();
 	afx_msg void OnBnClickedAccept();
 	afx_msg void OnBnClickedClosecall();
+	afx_msg void OnBnClickedAudioTest();
 
 	// 通过 ThreadIf 继承
 	virtual void thread() override;
 	virtual void OnOK();
+	virtual void OnCancel();
 
 	bool checkForRcc();
+	void printRccAck(bool ok, RccMessage::MessageType, CStringA& str);
+
+	// 通过 IAudioReadCallback 继承
+	virtual void outputPcm(const char * data, int len) override;
 
 protected:
 	HICON m_hIcon;
@@ -74,4 +81,6 @@ protected:
 	unsigned int remoteRtpRate_;
 
 	AudioWrite audioWrite_;
+	AudioRead audioRead_;
+	BOOL audioTest_;
 };
