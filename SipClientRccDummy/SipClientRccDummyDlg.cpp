@@ -92,15 +92,17 @@ const Codec Codec::G722_8000("G722", 9, 8000);
 CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_SIPCLIENTRCCDUMMY_DIALOG, pParent)
 	, localNum_(_T("1001"))
-	, remoteNum_(_T("1000"))
-//	, remoteNum_(_T("9664"))
+//	, remoteNum_(_T("1000"))
+//	, remoteNum_(_T("9664"))		//音乐
+	, remoteNum_(_T("9196"))		//echo
 	, rtpIP_("10.10.3.100")
-	, rtpPort_(24680)
+	, rtpPort_(14002)
 //	, rtpPayload_(0)		//"ULaw"
 	, rtpPayload_(8)		//"ALaw"
 	, rtpRate_(8000)
 	, audioRead_(this)
 	, audioTest_(FALSE)
+	, audioCall_(FALSE)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -142,7 +144,7 @@ BOOL CSipClientRccDummyDlg::OnInitDialog()
 	rccAgent_.startAgent(21358, NULL, DUMMY_RCC_PORT, "10.10.3.100");
 	this->run();
 
-	audioRead_.enumDevices();
+//	audioRead_.enumDevices();
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -185,11 +187,6 @@ HCURSOR CSipClientRccDummyDlg::OnQueryDragIcon()
 
 void CSipClientRccDummyDlg::OnDestroy()
 {
-	OnBnClickedClosecall();
-	rccAgent_.stopAgent();
-	this->shutdown();
-	this->join();
-	rtpSession_.Destroy();
 	CDialogEx::OnDestroy();
 }
 
@@ -211,12 +208,15 @@ bool CSipClientRccDummyDlg::checkForRcc()
 
 void CSipClientRccDummyDlg::thread()
 {
-	Buffer tmpBuf;
 	fd_set fdset;
 	struct timeval rttprev = { 0,0 }, rtt, tv;
 	SOCKET sock1, sock2;
 	rtpSession_.GetRTPSocket(&sock1);
 	rtpSession_.GetRTCPSocket(&sock2);
+
+	int tick;
+	static const int PCM_BUF_SIZE = 2048;
+	short pcmBuf[PCM_BUF_SIZE];
 
 	while (!isShutdown())
 	{
@@ -225,8 +225,9 @@ void CSipClientRccDummyDlg::thread()
 
 		if (audioWrite_.isStart())
 		{
+			
 			tv.tv_sec = 0;
-			tv.tv_usec = 10000;
+			tv.tv_usec = PTIME*1000;
 			FD_ZERO(&fdset);
 			FD_SET(sock1, &fdset);
 			FD_SET(sock2, &fdset);
@@ -235,7 +236,7 @@ void CSipClientRccDummyDlg::thread()
 			select(FD_SETSIZE, &fdset, NULL, NULL, &tv);
 			if (!FD_ISSET(0, &fdset))
 				continue;
-
+			
 			rtpSession_.PollData();
 			// check incoming packets
 			if (rtpSession_.GotoFirstSourceWithData())
@@ -251,23 +252,20 @@ void CSipClientRccDummyDlg::thread()
 						// You can examine the data here
 						char* data = (char*)pack->GetPayload();
 						int len = pack->GetPayloadLength();
-
-						if (pack->GetPayloadType() == rtpPayload_ && len > 0)	//is alaw?
+						/*
+						static int tick0 = ::GetTickCount();
+						tick = ::GetTickCount(); 
+						TRACE("[%d] RTPPacket len=%d\n", tick-tick0, len);
+						tick0 = tick;
+						*/
+						while (pack->GetPayloadType() == rtpPayload_ && len > 0)	//is alaw?
 						{
-							
-							//tmpBuf.pushBack(data, len, true);
-							TRACE("RTPPacket len=%d\n", len);
-							tmpBuf.pushBack(len*2, true);
-							short* s16 = (short*)tmpBuf.beginRead();
-							for (int j = 0; j<len; j++)
-								s16[j] = alaw_to_s16(data[j]);
-							
-							audioWrite_.inputPcm(tmpBuf.beginRead(), tmpBuf.readableBytes());
-							tmpBuf.erase();
-						}
-						else
-						{
-							int a = 1;
+							int sz = (len > PCM_BUF_SIZE) ? PCM_BUF_SIZE : len;
+							for (int j = 0; j<sz; j++)
+								pcmBuf[j] = alaw_to_s16(data[j]);
+							audioWrite_.inputPcm((char*)pcmBuf, sz*2);
+							len -= sz;
+							data += sz;
 						}
 
 						// we don't longer need the packet, so
@@ -323,14 +321,22 @@ void CSipClientRccDummyDlg::OnOK()
 			break;
 		case RccMessage::CALL_CONNECTED:
 			str = "通话中......";
+			audioCall_ = TRUE;
+			rtpSession_.ClearDestinations();
 			rtpSession_.AddDestination(ntohl(inet_addr(remoteRtpIP_.begin())), remoteRtpPort_);
+			rtpSession_.SetDefaultPayloadType(remoteRtpPayload_);
 			rtpSession_.SetTimestampUnit(1.0 / remoteRtpRate_);
-			audioWrite_.start(remoteRtpRate_, &rtpSession_);
+			rtpSession_.SetDefaultTimeStampIncrement(PTIME*remoteRtpRate_/1000);
+			rtpSession_.SetDefaultMark(false);
+			audioWrite_.start(remoteRtpRate_, PTIME);
+			audioRead_.start(remoteRtpRate_, PTIME);
 			break;
 		case RccMessage::CALL_CLOSE:
 			audioWrite_.stop();
+			audioRead_.stop();
 			str.Format("结束通话。 (%d)", msg->rccClose.mError);
 			rtpSession_.ClearDestinations();
+			audioCall_ = FALSE;
 			break;
 		case RccMessage::CALL_RESULT:
 			printRccAck(msg->rccResult.ok, (RccMessage::MessageType)msg->rccResult.which, str);
@@ -389,27 +395,54 @@ void CSipClientRccDummyDlg::OnBnClickedClosecall()
 void CSipClientRccDummyDlg::OnCancel()
 {
 	// TODO: 在此添加专用代码和/或调用基类
+	OnBnClickedClosecall();
 	rccAgent_.sendMessage(RccMessage::CALL_UNREGISTER);
 	Sleep(500);
+	rccAgent_.stopAgent();
+	this->shutdown();
+	this->join();
+	rtpSession_.Destroy();
 	__super::OnCancel();
 }
 
-void CSipClientRccDummyDlg::outputPcm(const char * data, int len)
+void CSipClientRccDummyDlg::outputPcm(char * data, int len)
 {
-	if (audioTest_ && audioWrite_.isStart())
+	static Buffer tmpBuf;
+	if (audioCall_)
+	{
+		tmpBuf.erase();
+		tmpBuf.pushBack(len/2, true);
+		unsigned char* pch = (unsigned char*)tmpBuf.beginRead();
+		short* s16 = (short*)data;
+		for (int i = 0; i < len / 2; ++i)
+			pch[i] = s16_to_alaw(s16[i]);
+		rtpSession_.SendPacket(pch, len/2);
+	}
+	else if (audioTest_)
 		audioWrite_.inputPcm(data, len);
 }
 
 void CSipClientRccDummyDlg::OnBnClickedAudioTest()
 {
+	if (audioCall_)
+		return;
+
 	UpdateData();
 	if (audioTest_)
 	{
-		audioWrite_.start(rtpRate_, &rtpSession_);
-		audioRead_.start(rtpRate_);
+		/*
+		rtpSession_.AddDestination(ntohl(inet_addr(rtpIP_)), rtpPort_);
+		rtpSession_.SetDefaultPayloadType(rtpPayload_);
+		rtpSession_.SetTimestampUnit(1.0 / remoteRtpRate_);
+		rtpSession_.SetDefaultTimeStampIncrement(PTIME*remoteRtpRate_ / 1000);
+		rtpSession_.SetDefaultMark(false);
+		*/
+		audioWrite_.start(rtpRate_, PTIME);
+		audioRead_.start(rtpRate_, PTIME);
 	}
 	else
 	{
+		//rtpSession_.ClearDestinations();
 		audioWrite_.stop();
 		audioRead_.stop();
 	}

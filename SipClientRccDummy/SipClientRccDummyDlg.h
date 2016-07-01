@@ -6,6 +6,7 @@
 
 #include "queue.h"
 #include "AudioRead.h"
+#include "AudioFile.h"
 #include "AudioWrite.h"
 
 #include "jrtplib\rtpsession.h"
@@ -15,6 +16,7 @@
 
 #include "afxwin.h"
 
+static const int PTIME = 40;
 // CSipClientRccDummyDlg 对话框
 class CSipClientRccDummyDlg : public CDialogEx, resip::ThreadIf, IAudioReadCallback
 {
@@ -56,7 +58,7 @@ protected:
 	void printRccAck(bool ok, RccMessage::MessageType, CStringA& str);
 
 	// 通过 IAudioReadCallback 继承
-	virtual void outputPcm(const char * data, int len) override;
+	virtual void outputPcm(char * data, int len) override;
 
 protected:
 	HICON m_hIcon;
@@ -81,6 +83,8 @@ protected:
 	unsigned int remoteRtpRate_;
 
 	AudioWrite audioWrite_;
-	AudioRead audioRead_;
+//	AudioRead audioRead_;
+	AudioFile audioRead_;
 	BOOL audioTest_;
+	BOOL audioCall_;
 };

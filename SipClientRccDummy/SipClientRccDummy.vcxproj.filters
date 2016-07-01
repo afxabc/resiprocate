@@ -57,6 +57,9 @@
     <ClInclude Include="buffer.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="AudioFile.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SipClientRccDummy.cpp">
@@ -86,6 +89,9 @@
     <ClCompile Include="buffer.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="AudioFile.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="SipClientRccDummy.rc">
@@ -101,5 +107,10 @@
     <Image Include="res\SipClientRccDummy.ico">
       <Filter>资源文件</Filter>
     </Image>
+  </ItemGroup>
+  <ItemGroup>
+    <Media Include="res\8000.wav">
+      <Filter>资源文件</Filter>
+    </Media>
   </ItemGroup>
 </Project>

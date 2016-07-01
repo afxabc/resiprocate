@@ -9,6 +9,7 @@ AudioWrite::AudioWrite()
 	, pDSB8_(NULL)
 	, pDSN_(NULL)
 	, mute_(false)
+	, ptime_(40)
 {
 	HRESULT hr = DirectSoundCreate8(NULL, &lpDSound_, NULL);
 	mShutdown = true;
@@ -21,10 +22,11 @@ AudioWrite::~AudioWrite()
 	lpDSound_->Release();
 }
 
-bool AudioWrite::start(UINT rate, RTPSession* session)
+bool AudioWrite::start(UINT rate, int ptime)
 {
-	pSession_ = session;
 	stop();
+
+	ptime_ = ptime;
 
 	HRESULT hr = lpDSound_->SetCooperativeLevel(GetDesktopWindow(), DSSCL_PRIORITY);
 	if (FAILED(hr))
@@ -49,8 +51,7 @@ bool AudioWrite::start(UINT rate, RTPSession* session)
 	fmtWave_.nSamplesPerSec = rate;
 	fmtWave_.wBitsPerSample = 16;
 
-	int delay = 40; //100msª∫¥Ê
-	bufferNotifySize_ = fmtWave_.nAvgBytesPerSec*delay / 1000;
+	bufferNotifySize_ = fmtWave_.nAvgBytesPerSec*ptime / 1000;
 
 	//¥¥Ω®∏®÷˙ª∫≥Â«¯∂‘œÛ
 	DSBUFFERDESC dsbd;
@@ -72,7 +73,8 @@ bool AudioWrite::start(UINT rate, RTPSession* session)
 	{
 		if (FAILED(hr = lpDSound_->CreateSoundBuffer(&dsbd, &pDSB, NULL)))
 		{
-			TRACE("CreateSoundBuffer failed %X \n", hr);
+			TRACE("CreateSoundBuffer failed 0x%X \n", hr);
+			hr = E_INVALIDARG;
 			break;
 		}
 		if (FAILED(hr = pDSB->QueryInterface(IID_IDirectSoundBuffer8, (LPVOID*)&pDSB8_)))
@@ -158,29 +160,40 @@ void AudioWrite::thread()
 	LPVOID buf = NULL;
 	DWORD  buf_len = 0;
 	DWORD obj = WAIT_OBJECT_0;
-	DWORD offset = bufferNotifySize_;
+	DWORD offset = bufferNotifySize_*2;
 	Buffer tmp;
 
 	mute_ = false;
 	mShutdown = false;
 
+	bool empty = false;
 	while (!mShutdown)
 	{
+	/*	if (!playQueue_.getFront(tmp, ptime_))
+		{
+			tmp.erase();
+			tmp.pushBack((unsigned char)0, bufferNotifySize_, true);		//æ≤“Ù
+		}*/
 		obj = WaitForMultipleObjects(MAX_AUDIO_BUF, ev, FALSE, INFINITE);
-
 		if ((obj < WAIT_OBJECT_0) || (obj >= WAIT_OBJECT_0 + MAX_AUDIO_BUF))
 			continue;
 
 		if (mute_)
 			playQueue_.clear();
 
-		if (!playQueue_.getFront(tmp))
+		tmp.erase();
+		while (playQueue_.size() > 0)
 		{
-			tmp.erase();
-			tmp.pushBack((unsigned char)0, bufferNotifySize_, true);		//æ≤“Ù
+			playQueue_.getFront(tmp);
 		}
-
-		pDSB8_->Lock(offset, bufferNotifySize_, &buf, &buf_len, NULL, NULL, 0);
+		if (tmp.readableBytes() == 0)
+			tmp.pushBack((unsigned char)0, bufferNotifySize_, true);		//æ≤“Ù
+		
+		if (FAILED(pDSB8_->Lock(offset, bufferNotifySize_, &buf, &buf_len, NULL, NULL, 0)))
+		{
+			TRACE("Lock in %d failed !!\n", offset);
+			continue;
+		}
 		memcpy(buf, tmp.beginRead(), tmp.readableBytes());
 		pDSB8_->Unlock(buf, buf_len, NULL, 0);
 

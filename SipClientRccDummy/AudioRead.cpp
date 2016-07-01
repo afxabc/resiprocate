@@ -39,7 +39,7 @@ void AudioRead::enumDevices()
 	HRESULT hr = DirectSoundCaptureEnumerate((LPDSENUMCALLBACK)DSEnumProc, (VOID*)this);
 }
 
-bool AudioRead::start(UINT rate)
+bool AudioRead::start(UINT rate, int ptime)
 {
 	stop();
 
@@ -51,8 +51,7 @@ bool AudioRead::start(UINT rate)
 	fmtWave_.nSamplesPerSec = rate;
 	fmtWave_.wBitsPerSample = 16;
 
-	int delay = 40; //100ms缓存
-	bufferNotifySize_ = fmtWave_.nAvgBytesPerSec*delay / 1000;
+	bufferNotifySize_ = fmtWave_.nAvgBytesPerSec*ptime / 1000;
 
 	//创建辅助缓冲区对象
 	DSCBUFFERDESC dscbd;
@@ -162,7 +161,6 @@ void AudioRead::thread()
 		assert(buf_len == bufferNotifySize_);
 
 		offset = (offset+buf_len)%(bufferNotifySize_*MAX_AUDIO_BUF);
-		
 	}
 
 	pDSB8_->Stop();

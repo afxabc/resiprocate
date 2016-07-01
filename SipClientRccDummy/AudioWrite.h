@@ -18,7 +18,7 @@ public:
 	~AudioWrite();
 
 public:
-	bool start(UINT rate, RTPSession* session);
+	bool start(UINT rate, int ptime);
 	void stop();
 	void inputPcm(const char* data, int len);
 
@@ -42,9 +42,8 @@ private:
 	resip::Mutex mutex_;
 	Buffer recvBuff_;
 	Queue<Buffer> playQueue_;
+	int ptime_;
 
-public:
-	RTPSession* pSession_;
 };
 
 

@@ -13,7 +13,7 @@
 class IAudioReadCallback
 {
 public:
-	virtual void outputPcm(const char* data, int len) = 0;
+	virtual void outputPcm(char* data, int len) = 0;
 };
 
 class RTPSession;
@@ -27,7 +27,7 @@ public:
 public:
 	void enumDevices();
 
-	bool start(UINT rate);
+	bool start(UINT rate, int ptime);
 	void stop();
 
 	bool isStart() { return !mShutdown; }
