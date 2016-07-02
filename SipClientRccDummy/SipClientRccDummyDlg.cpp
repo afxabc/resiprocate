@@ -89,6 +89,7 @@ const Codec Codec::ALaw_8000("PCMA", 8, 8000);
 const Codec Codec::G722_8000("G722", 9, 8000);
 */
 
+static const int PTIME = 20;
 CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_SIPCLIENTRCCDUMMY_DIALOG, pParent)
 	, localNum_(_T("1001"))

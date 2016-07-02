@@ -134,6 +134,7 @@ bool RccUserAgent::sendMessageResult(bool ok, RccMessage::MessageType which)
 	RccMessage msg;
 	msg.mType = RccMessage::CALL_RESULT;
 	msg.rccResult.which = which;
+	msg.rccResult.ok = ok;
 	return sendMessage(msg);
 }
 

@@ -16,7 +16,6 @@
 
 #include "afxwin.h"
 
-static const int PTIME = 40;
 // CSipClientRccDummyDlg ¶Ô»°¿ò
 class CSipClientRccDummyDlg : public CDialogEx, resip::ThreadIf, IAudioReadCallback
 {

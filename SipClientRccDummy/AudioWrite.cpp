@@ -26,7 +26,7 @@ bool AudioWrite::start(UINT rate, int ptime)
 {
 	stop();
 
-	ptime_ = ptime;
+	ptime_ = ptime*2;
 
 	HRESULT hr = lpDSound_->SetCooperativeLevel(GetDesktopWindow(), DSSCL_PRIORITY);
 	if (FAILED(hr))
@@ -34,15 +34,7 @@ bool AudioWrite::start(UINT rate, int ptime)
 		TRACE("SetCooperativeLevel failed %X\n", hr);
 		return false;
 	}
-	/*
-	wfx.wFormatTag = WAVE_FORMAT_PCM;
-	wfx.cbSize = 0;//PCM格式时，忽略/
-	wfx.nAvgBytesPerSec = 16000;//数据传输速率，字节/秒/
-	wfx.nBlockAlign = 2;//每个样本的字节数/
-	wfx.nChannels = 1;//通道数/
-	wfx.nSamplesPerSec = 8000;//采样率/
-	wfx.wBitsPerSample = 16;//每个样本的bit数/
-	*/
+
 	fmtWave_.wFormatTag = WAVE_FORMAT_PCM;
 	fmtWave_.cbSize = sizeof(fmtWave_);
 	fmtWave_.nAvgBytesPerSec = rate*2;
@@ -51,7 +43,7 @@ bool AudioWrite::start(UINT rate, int ptime)
 	fmtWave_.nSamplesPerSec = rate;
 	fmtWave_.wBitsPerSample = 16;
 
-	bufferNotifySize_ = fmtWave_.nAvgBytesPerSec*ptime / 1000;
+	bufferNotifySize_ = fmtWave_.nAvgBytesPerSec*ptime_ / 1000;
 
 	//创建辅助缓冲区对象
 	DSBUFFERDESC dsbd;
@@ -145,12 +137,11 @@ void AudioWrite::thread()
 	//设置提醒
 
 	DSBPOSITIONNOTIFY DSBPositionNotify[MAX_AUDIO_BUF];
-	HANDLE ev[MAX_AUDIO_BUF];
+	HANDLE ev = CreateEvent(NULL, FALSE, FALSE, NULL);
 	for (int i = 0; i<MAX_AUDIO_BUF; i++)
 	{
 		DSBPositionNotify[i].dwOffset = i*bufferNotifySize_;
-		ev[i] = CreateEvent(NULL, FALSE, FALSE, NULL);
-		DSBPositionNotify[i].hEventNotify = ev[i];
+		DSBPositionNotify[i].hEventNotify = ev;
 	}
 	pDSN_->SetNotificationPositions(MAX_AUDIO_BUF, DSBPositionNotify);
 
@@ -161,38 +152,41 @@ void AudioWrite::thread()
 	DWORD  buf_len = 0;
 	DWORD obj = WAIT_OBJECT_0;
 	DWORD offset = bufferNotifySize_*2;
-	Buffer tmp;
+	DWORD offsetPlay = 0;
+	DWORD totalSize = bufferNotifySize_*MAX_AUDIO_BUF;
 
 	mute_ = false;
 	mShutdown = false;
-
 	bool empty = false;
+
+	Buffer tmp;
 	while (!mShutdown)
 	{
-	/*	if (!playQueue_.getFront(tmp, ptime_))
+		if (!playQueue_.getFront(tmp, ptime_/2))
 		{
+			pDSB8_->GetCurrentPosition(&offsetPlay, NULL);
+			DWORD doffset = (offset - offsetPlay + totalSize) % totalSize;
+			if (doffset >= bufferNotifySize_)
+				continue;
+
 			tmp.erase();
 			tmp.pushBack((unsigned char)0, bufferNotifySize_, true);		//静音
-		}*/
-		obj = WaitForMultipleObjects(MAX_AUDIO_BUF, ev, FALSE, INFINITE);
-		if ((obj < WAIT_OBJECT_0) || (obj >= WAIT_OBJECT_0 + MAX_AUDIO_BUF))
-			continue;
-
-		if (mute_)
-			playQueue_.clear();
-
-		tmp.erase();
-		while (playQueue_.size() > 0)
-		{
-			playQueue_.getFront(tmp);
 		}
-		if (tmp.readableBytes() == 0)
-			tmp.pushBack((unsigned char)0, bufferNotifySize_, true);		//静音
-		
+
 		if (FAILED(pDSB8_->Lock(offset, bufferNotifySize_, &buf, &buf_len, NULL, NULL, 0)))
 		{
-			TRACE("Lock in %d failed !!\n", offset);
-			continue;
+			TRACE("Lock in %d failed.\n", offset);
+			ResetEvent(ev);
+			obj = WaitForSingleObject(ev, INFINITE);
+			if ((obj < WAIT_OBJECT_0) || (obj >= WAIT_OBJECT_0 + MAX_AUDIO_BUF))
+				continue;
+
+			if (FAILED(pDSB8_->Lock(offset, bufferNotifySize_, &buf, &buf_len, NULL, NULL, 0)))
+			{
+				TRACE("Lock in %d failed again !!!!!!!!\n", offset);
+				continue;
+			}
+
 		}
 		memcpy(buf, tmp.beginRead(), tmp.readableBytes());
 		pDSB8_->Unlock(buf, buf_len, NULL, 0);
@@ -206,7 +200,7 @@ void AudioWrite::thread()
 
 	pDSN_->Release();
 
-	for (int i = 0; i<MAX_AUDIO_BUF; i++)
-		CloseHandle(ev[i]);
+//	for (int i = 0; i<MAX_AUDIO_BUF; i++)
+		CloseHandle(ev);
 
 }

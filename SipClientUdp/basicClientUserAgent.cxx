@@ -319,6 +319,8 @@ bool BasicClientUserAgent::start(const char * sipHost, const char * passwd, unsi
 	mDumShutdownRequested = false;
 
 	addTransport(UDP, mSipPort);
+
+	InfoLog(<< "Using local sip port: " << mSipPort);
 	// Disable Statistics Manager
 	mStack->statisticsManagerEnabled() = false;
 
@@ -474,6 +476,7 @@ BasicClientUserAgent::addTransport(TransportType type, int port)
 		try
 		{
 			mTransport = mStack->addTransport(type, port+i);
+			mSipPort = port + i;
             return;
 		}
 		catch (BaseException& e)
@@ -636,6 +639,7 @@ BasicClientUserAgent::onRequestRetry(ClientRegistrationHandle h, int retryMinimu
    int retryTime = Helper::jitterValue(mRegistrationRetryDelayTime, 50, 100);
    InfoLog(<< "onRequestRetry(ClientRegistrationHandle): msg=" << msg.brief() << ", retryTime=" << retryTime);
 
+   mRccAgent.sendMessageResult(false, RccMessage::CALL_REGISTER);
    return retryTime;
 }
 
