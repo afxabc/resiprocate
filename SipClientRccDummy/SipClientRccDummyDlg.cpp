@@ -97,7 +97,7 @@ CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 //	, remoteNum_(_T("9664"))		//音乐
 	, remoteNum_(_T("9196"))		//echo
 	, rtpIP_("10.10.3.100")
-	, rtpPort_(14002)
+	, rtpPort_(RCC_RTP_PORT_BASE)
 //	, rtpPayload_(0)		//"ULaw"
 	, rtpPayload_(8)		//"ALaw"
 	, rtpRate_(8000)
@@ -145,8 +145,13 @@ BOOL CSipClientRccDummyDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
-	int ret = rtpSession_.Create(rtpPort_);
-	rccAgent_.startAgent(21358, NULL, DUMMY_RCC_PORT, "10.10.3.100");
+	int ret = 0;
+	while ((ret = rtpSession_.Create(rtpPort_)) < 0)
+	{
+		TRACE("tpSession_.Create(%d) return %d !!!\n", rtpPort_, ret);
+		rtpPort_ += 2;
+	}
+	rccAgent_.startAgent(RCC_CLIENT_PORT_BASE, NULL, RCC_SERVER_PORT_BASE, "10.10.3.100");
 	this->run();
 
 //	audioRead_.enumDevices();

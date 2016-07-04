@@ -8,9 +8,9 @@
 //SIP配置参数
 static const char* sipHost = "10.10.3.100";		//sip服务器地址
 static const char* sipPasswd = "1234";
-static unsigned short sipPort = 12468;			//本地sip端口
+static unsigned short sipPort = 12000;			//本地sip端口
 //RCC服务端口
-static unsigned short rccPort = DUMMY_RCC_PORT;
+static unsigned short rccPort = RCC_SERVER_PORT_BASE;
 static const char * rccIP = NULL;
 
 static resip::BasicClientUserAgent* agent = NULL;

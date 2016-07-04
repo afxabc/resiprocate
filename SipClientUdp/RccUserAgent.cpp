@@ -85,9 +85,18 @@ bool RccUserAgent::startAgent(unsigned short localPort, const char* localIP, uns
 		mTargetIP = ntohl(inet_addr(targetIP));
 	mTargetPort = targetPort;
 
-	mSocket = openPort(mLocalPort, mLocalIP, false);
+	int tryCount = 10;
+	while ((mSocket = openPort(mLocalPort, mLocalIP, false)) == INVALID_SOCKET && tryCount > 0)
+	{
+		mLocalPort++;
+		mTargetPort++;
+		tryCount--;
+	}
+		
 	if (mSocket == INVALID_SOCKET)
 		return false;
+
+	std::cout << "RccUserAgent start at port " << mLocalPort << std::endl;
 
 	resip::makeSocketNonBlocking(mSocket);
 

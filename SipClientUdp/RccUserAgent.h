@@ -6,7 +6,9 @@
 
 
 //测试使用的RCC服务端口
-static const unsigned short DUMMY_RCC_PORT = 9767;
+static const unsigned short RCC_SERVER_PORT_BASE = 22000;
+static const unsigned short RCC_CLIENT_PORT_BASE = 24000;
+static const unsigned short RCC_RTP_PORT_BASE = 28000;
 ///////////////////////
 
 
