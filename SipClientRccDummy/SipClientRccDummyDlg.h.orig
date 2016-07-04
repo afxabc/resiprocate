@@ -16,6 +16,7 @@
 
 #include "afxwin.h"
 
+static const int PTIME = 40;
 // CSipClientRccDummyDlg ¶Ô»°¿ò
 class CSipClientRccDummyDlg : public CDialogEx, resip::ThreadIf, IAudioReadCallback
 {
@@ -83,9 +84,16 @@ protected:
 	unsigned int remoteRtpRate_;
 
 	AudioWrite audioWrite_;
+<<<<<<< HEAD
+//	AudioRead audioRead_;
+	AudioFile audioRead_;
+	BOOL audioTest_;
+	BOOL audioCall_;
+=======
 	AudioRead audioRead_;
 	AudioFile audioFile_;
 	BOOL audioTest_;
 	BOOL audioCall_;
 	int audioSrc_;
+>>>>>>> fdf2d64c3f07d96f1f2c705ae7d39f769c7e201e
 };

@@ -26,7 +26,11 @@ bool AudioWrite::start(UINT rate, int ptime)
 {
 	stop();
 
+<<<<<<< HEAD
+	ptime_ = ptime;
+=======
 	ptime_ = ptime*2;
+>>>>>>> fdf2d64c3f07d96f1f2c705ae7d39f769c7e201e
 
 	HRESULT hr = lpDSound_->SetCooperativeLevel(GetDesktopWindow(), DSSCL_PRIORITY);
 	if (FAILED(hr))
@@ -43,7 +47,11 @@ bool AudioWrite::start(UINT rate, int ptime)
 	fmtWave_.nSamplesPerSec = rate;
 	fmtWave_.wBitsPerSample = 16;
 
+<<<<<<< HEAD
+	bufferNotifySize_ = fmtWave_.nAvgBytesPerSec*ptime / 1000;
+=======
 	bufferNotifySize_ = fmtWave_.nAvgBytesPerSec*ptime_ / 1000;
+>>>>>>> fdf2d64c3f07d96f1f2c705ae7d39f769c7e201e
 
 	//创建辅助缓冲区对象
 	DSBUFFERDESC dsbd;
@@ -152,17 +160,28 @@ void AudioWrite::thread()
 	DWORD  buf_len = 0;
 	DWORD obj = WAIT_OBJECT_0;
 	DWORD offset = bufferNotifySize_*2;
+<<<<<<< HEAD
+	Buffer tmp;
+=======
 	DWORD offsetPlay = 0;
 	DWORD totalSize = bufferNotifySize_*MAX_AUDIO_BUF;
+>>>>>>> fdf2d64c3f07d96f1f2c705ae7d39f769c7e201e
 
 	mute_ = false;
 	mShutdown = false;
 	bool empty = false;
 
+<<<<<<< HEAD
+	bool empty = false;
+	while (!mShutdown)
+	{
+	/*	if (!playQueue_.getFront(tmp, ptime_))
+=======
 	Buffer tmp;
 	while (!mShutdown)
 	{
 		if (!playQueue_.getFront(tmp, ptime_/2))
+>>>>>>> fdf2d64c3f07d96f1f2c705ae7d39f769c7e201e
 		{
 			pDSB8_->GetCurrentPosition(&offsetPlay, NULL);
 			DWORD doffset = (offset - offsetPlay + totalSize) % totalSize;
@@ -171,6 +190,29 @@ void AudioWrite::thread()
 
 			tmp.erase();
 			tmp.pushBack((unsigned char)0, bufferNotifySize_, true);		//静音
+<<<<<<< HEAD
+		}*/
+		obj = WaitForMultipleObjects(MAX_AUDIO_BUF, ev, FALSE, INFINITE);
+		if ((obj < WAIT_OBJECT_0) || (obj >= WAIT_OBJECT_0 + MAX_AUDIO_BUF))
+			continue;
+
+		if (mute_)
+			playQueue_.clear();
+
+		tmp.erase();
+		while (playQueue_.size() > 0)
+		{
+			playQueue_.getFront(tmp);
+		}
+		if (tmp.readableBytes() == 0)
+			tmp.pushBack((unsigned char)0, bufferNotifySize_, true);		//静音
+		
+		if (FAILED(pDSB8_->Lock(offset, bufferNotifySize_, &buf, &buf_len, NULL, NULL, 0)))
+		{
+			TRACE("Lock in %d failed !!\n", offset);
+			continue;
+		}
+=======
 		}
 
 		if (FAILED(pDSB8_->Lock(offset, bufferNotifySize_, &buf, &buf_len, NULL, NULL, 0)))
@@ -188,6 +230,7 @@ void AudioWrite::thread()
 			}
 
 		}
+>>>>>>> fdf2d64c3f07d96f1f2c705ae7d39f769c7e201e
 		memcpy(buf, tmp.beginRead(), tmp.readableBytes());
 		pDSB8_->Unlock(buf, buf_len, NULL, 0);
 
@@ -200,7 +243,12 @@ void AudioWrite::thread()
 
 	pDSN_->Release();
 
+<<<<<<< HEAD
+	for (int i = 0; i<MAX_AUDIO_BUF; i++)
+		CloseHandle(ev[i]);
+=======
 //	for (int i = 0; i<MAX_AUDIO_BUF; i++)
 		CloseHandle(ev);
+>>>>>>> fdf2d64c3f07d96f1f2c705ae7d39f769c7e201e
 
 }

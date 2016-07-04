@@ -6,7 +6,7 @@
 #include "basicClientUserAgent.hxx"
 
 //SIP配置参数
-static const char* sipHost = "10.10.3.202";		//sip服务器地址
+static const char* sipHost = "10.10.3.100";		//sip服务器地址
 static const char* sipPasswd = "1234";
 static unsigned short sipPort = 12468;			//本地sip端口
 //RCC服务端口

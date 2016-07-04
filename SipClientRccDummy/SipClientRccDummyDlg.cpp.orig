@@ -105,7 +105,10 @@ CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	, audioFile_(this)
 	, audioTest_(FALSE)
 	, audioCall_(FALSE)
+<<<<<<< HEAD
+=======
 	, audioSrc_(0)
+>>>>>>> fdf2d64c3f07d96f1f2c705ae7d39f769c7e201e
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -334,15 +337,22 @@ void CSipClientRccDummyDlg::OnOK()
 			rtpSession_.SetDefaultTimeStampIncrement(PTIME*remoteRtpRate_/1000);
 			rtpSession_.SetDefaultMark(false);
 			audioWrite_.start(remoteRtpRate_, PTIME);
+<<<<<<< HEAD
+			audioRead_.start(remoteRtpRate_, PTIME);
+=======
 			if (audioSrc_ == 0)
 				audioRead_.start(remoteRtpRate_, PTIME);
 			else if (audioSrc_ == 1)
 				audioFile_.start(remoteRtpRate_, PTIME);
+>>>>>>> fdf2d64c3f07d96f1f2c705ae7d39f769c7e201e
 			break;
 		case RccMessage::CALL_CLOSE:
 			audioWrite_.stop();
 			audioRead_.stop();
+<<<<<<< HEAD
+=======
 			audioFile_.stop();
+>>>>>>> fdf2d64c3f07d96f1f2c705ae7d39f769c7e201e
 			str.Format("½áÊøÍ¨»°¡£ (%d)", msg->rccClose.mError);
 			rtpSession_.ClearDestinations();
 			audioCall_ = FALSE;
@@ -447,10 +457,14 @@ void CSipClientRccDummyDlg::OnBnClickedAudioTest()
 		rtpSession_.SetDefaultMark(false);
 		*/
 		audioWrite_.start(rtpRate_, PTIME);
+<<<<<<< HEAD
+		audioRead_.start(rtpRate_, PTIME);
+=======
 		if (audioSrc_ == 0)
 			audioRead_.start(rtpRate_, PTIME);
 		else if (audioSrc_ == 1)
 			audioFile_.start(rtpRate_, PTIME);
+>>>>>>> fdf2d64c3f07d96f1f2c705ae7d39f769c7e201e
 	}
 	else
 	{
