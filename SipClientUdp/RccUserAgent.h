@@ -116,6 +116,8 @@ public:
 	bool sendMessageClose(unsigned char error = 0, const char* reason = NULL);
 	int getMessage(RccMessage* msg, int sz = sizeof(RccMessage));
 
+	unsigned short localPort() { return mLocalPort; }
+
 private:
 	bool sendMessage(const RccMessage& msg);
 

@@ -292,6 +292,12 @@ void resip::BasicClientUserAgent::setupProfile()
 
 void resip::BasicClientUserAgent::thread()
 {
+	std::cout << std::endl;
+	std::cout << "** sip host : " << mSipHost << std::endl;
+	std::cout << "** sip port : " << mSipPort << std::endl;
+	std::cout << "** rcc port : " << mRccAgent.localPort() << std::endl;
+	std::cout << std::endl;
+
 	mShutdown = false;
 	while (!mShutdown)
 	{
@@ -657,6 +663,21 @@ void
 BasicClientUserAgent::onNewSession(ServerInviteSessionHandle h, InviteSession::OfferAnswerType oat, const SipMessage& msg)
 {
    dynamic_cast<BasicClientCall *>(h->getAppDialogSet().get())->onNewSession(h, oat, msg);
+   /*
+   msgIncomingCall(msg.header(resip::h_CallId).value(),
+	   msg.header(resip::h_Contacts).front().displayName(),
+	   msg.header(resip::h_Contacts).front().uri().user(),
+	   msg.header(resip::h_Contacts).front().uri().host(),
+	   msg.header(resip::h_RequestLine).uri().host());
+
+   Data frommsg("new call:");*/
+   std::cout << std::endl;
+   std::cout << "** msg.header(resip::h_From).displayName() : " << msg.header(resip::h_From).displayName() << std::endl;
+   std::cout << "** msg.header(resip::h_From).uri().getAor() : " << msg.header(resip::h_From).uri().getAor() << std::endl;
+   std::cout << "** msg.header(resip::h_From).uri().user() : " << msg.header(resip::h_From).uri().user() << std::endl;
+   std::cout << std::endl;
+
+   mTmpContact  = msg.header(resip::h_From).uri().user();
 }
 
 void
@@ -770,7 +791,7 @@ BasicClientUserAgent::onOffer(InviteSessionHandle h, const SipMessage& msg, cons
 		UInt32 rate;
 		getRemoteOffer(sdp, rtpip, rtpport, payload, rate);
 
-		mRccAgent.sendMessageInvite(host.begin(), rtpip.begin(), rtpport, payload, rate);
+		mRccAgent.sendMessageInvite(mTmpContact.begin(), rtpip.begin(), rtpport, payload, rate);
 	}
 }
 

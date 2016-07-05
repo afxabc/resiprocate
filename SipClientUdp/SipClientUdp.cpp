@@ -22,7 +22,7 @@ static void signalHandler(int signo)
 	exitSignalDetected = true;
 }
 
-int main()
+int main(int argc, char* argv[])
 {
 #ifndef _WIN32
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR)
@@ -53,6 +53,11 @@ int main()
 	resip::Log::initialize("cout", "INFO", "<<<SipClientUdp>>>");
 	// Initialize network
 	resip::initNetwork();
+
+	if (argc > 1)
+	{
+		sipHost = argv[1];
+	}
 
 	agent = new resip::BasicClientUserAgent();
 	if (!agent->start(sipHost, sipPasswd, rccPort, rccIP, sipPort))

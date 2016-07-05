@@ -178,7 +178,7 @@ private:
 
 	bool mOutboundEnabled;
 	Uri mOutboundProxy;
-//	Uri mContact;
+	Data mTmpContact;
 
 	Uri mSubscribeTarget;
 //	Uri mCallTarget;
