@@ -46,6 +46,7 @@ static unsigned int NotifySendTime = 30;  // If someone subscribes to our test e
 static unsigned int FailedSubscriptionRetryTime = 60; 
 
 //#define TEST_PASSING_A1_HASH_FOR_PASSWORD
+#define ONE_CALL_PERTIME
 
 namespace resip
 {
@@ -433,6 +434,18 @@ void resip::BasicClientUserAgent::unRegisterSession()
 
 bool resip::BasicClientUserAgent::openSession(const char * num, const char * rtpIP, unsigned short rtpPort, unsigned char payload, UInt32 rate)
 {
+	std::cout << std::endl;
+	std::cout << ">>>>> openSession mCallList: " << mCallList.size() << std::endl;
+	std::cout << std::endl;
+
+#ifdef ONE_CALL_PERTIME
+	if (mCallList.size() > 0)
+	{
+		mRccAgent.sendMessageResult(false, RccMessage::CALL_INVITE);
+		return false;
+	}
+#endif
+
 	Data sToURI = makeValidUri(num);
 		
 //	mCallTarget = Uri(sToURI);
@@ -662,6 +675,19 @@ BasicClientUserAgent::onNewSession(ClientInviteSessionHandle h, InviteSession::O
 void
 BasicClientUserAgent::onNewSession(ServerInviteSessionHandle h, InviteSession::OfferAnswerType oat, const SipMessage& msg)
 {
+	std::cout << std::endl;
+	std::cout << ">>>>> onNewSession(ServerInviteSessionHandle) mCallList: " << mCallList.size() << std::endl;
+	std::cout << std::endl;
+
+#ifdef ONE_CALL_PERTIME
+	if (mCallList.size() > 1)
+	{
+		h->reject(486 /* Busy here */);
+		dynamic_cast<BasicClientCall *>(h->getAppDialogSet().get())->terminateCall();
+		return;
+	}
+#endif
+
    dynamic_cast<BasicClientCall *>(h->getAppDialogSet().get())->onNewSession(h, oat, msg);
    /*
    msgIncomingCall(msg.header(resip::h_CallId).value(),
@@ -722,7 +748,20 @@ void
 BasicClientUserAgent::onTerminated(InviteSessionHandle h, InviteSessionHandler::TerminatedReason reason, const SipMessage* msg)
 {
    dynamic_cast<BasicClientCall *>(h->getAppDialogSet().get())->onTerminated(h, reason, msg);
+
+   std::cout << std::endl;
+   std::cout << ">>>>> onTerminated(InviteSessionHandle) mCallList: " << mCallList.size() << std::endl;
+   std::cout << std::endl;
+
+#ifdef ONE_CALL_PERTIME
+   if (mCallList.size() > 1)
+   {
+	   return;
+   }
+#endif
+
    mRccAgent.sendMessageClose(reason);
+
 }
 
 void
@@ -776,15 +815,6 @@ BasicClientUserAgent::onOffer(InviteSessionHandle h, const SipMessage& msg, cons
 	{
 		call->onOffer(h, msg, sdp);
 		
-		/*
-		msgIncomingCall(msg.header(resip::h_CallId).value(),
-			msg.header(resip::h_Contacts).front().displayName(),
-			msg.header(resip::h_Contacts).front().uri().user(),
-			msg.header(resip::h_Contacts).front().uri().host(),
-			msg.header(resip::h_RequestLine).uri().host());
-		*/
-		Data host = msg.header(resip::h_Contacts).front().uri().user();
-
 		Data rtpip;
 		unsigned short rtpport;
 		unsigned char payload;
