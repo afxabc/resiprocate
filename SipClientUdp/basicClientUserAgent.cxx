@@ -304,6 +304,19 @@ void resip::BasicClientUserAgent::thread()
 	{
 		mDum->process(100);
 		checkForRcc();
+
+		if (mRegHandle.isValid())
+		{
+			static const int REG_SPAN_TIME = 3 * 60 * 1000;	//ms
+			Timestamp tmNow = Timestamp::NOW();
+			if (tmNow - mRegTimestamp > REG_SPAN_TIME)
+			{
+				mRegTimestamp = tmNow;
+
+				std::cout << tmNow << " : auto registration ......" << std::endl;
+				mDum->send(mDum->makeRegistration(NameAddr(mRegURI)));
+			}
+		}
 	}
 	// unregister
 	unRegisterSession();
@@ -400,12 +413,12 @@ Data resip::BasicClientUserAgent::makeValidUri(const char * uri)
 
 void resip::BasicClientUserAgent::registerSession(const char* num)
 {
-	Data sToURI = makeValidUri(num);
+	mRegURI = Uri(makeValidUri(num));
 
-	NameAddr sipUri = NameAddr(Uri(sToURI));
+	NameAddr sipUri = NameAddr(mRegURI);
 	// UserProfile Settings
 	mProfile->setDefaultFrom(sipUri);
-	mProfile->setDigestCredential(mSipHost, num, mPassword);
+	mProfile->setDigestCredential(mSipHost, mRegURI.user(), mPassword);
 
 	InfoLog(<< "register for " << sipUri);
 	mDum->send(mDum->makeRegistration(sipUri));
@@ -611,10 +624,14 @@ BasicClientUserAgent::onSuccess(ClientRegistrationHandle h, const SipMessage& ms
 	if(mRegHandle.getId() == 0)  // Note: reg handle id will only be 0 on first successful registration
 	{
 	}
+
+	bool newReg = !mRegHandle.isValid();
 	mRegHandle = h;
 	mRegistrationRetryDelayTime = 0;  // reset
 
-	mRccAgent.sendMessageResult(true, RccMessage::CALL_REGISTER);
+	if (newReg)
+		mRccAgent.sendMessageResult(true, RccMessage::CALL_REGISTER);
+	mRegTimestamp = Timestamp::NOW();
 }
 
 void

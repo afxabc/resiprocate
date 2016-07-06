@@ -92,10 +92,10 @@ const Codec Codec::G722_8000("G722", 9, 8000);
 static const int PTIME = 20;
 CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_SIPCLIENTRCCDUMMY_DIALOG, pParent)
-	, localNum_(_T("1001"))
-//	, remoteNum_(_T("1000"))
+	, localNum_(_T("1000"))
+	, remoteNum_(_T("1001"))
 //	, remoteNum_(_T("9664"))		//ÒôÀÖ
-	, remoteNum_(_T("9196"))		//echo
+//	, remoteNum_(_T("9196"))		//echo
 	, rtpIP_("10.10.3.100")
 	, rtpPort_(RCC_RTP_PORT_BASE)
 //	, rtpPayload_(0)		//"ULaw"
@@ -298,6 +298,9 @@ void CSipClientRccDummyDlg::printRccAck(bool ok, RccMessage::MessageType which, 
 		break;
 	case RccMessage::CALL_UNREGISTER:
 		str = "×¢Ïú";
+		break;
+	case RccMessage::CALL_INVITE:
+		str = "ºô½Ð";
 		break;
 	default:
 		str = "Ö´ÐÐ";

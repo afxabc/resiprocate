@@ -17,6 +17,7 @@
 #include "rutil/ThreadIf.hxx"
 
 #include "RccUserAgent.h"
+#include "timestamp.h"
 
 namespace resip
 {
@@ -158,6 +159,7 @@ protected:
    volatile bool mDumShutdownRequested;
    bool mDumShutdown;
    ClientRegistrationHandle mRegHandle;
+   Timestamp mRegTimestamp;
    ClientSubscriptionHandle mClientSubscriptionHandle;
    ServerSubscriptionHandle mServerSubscriptionHandle;
    unsigned int mRegistrationRetryDelayTime;
@@ -173,6 +175,8 @@ private:
 	Data mSipHost;
 	unsigned short mSipPort;
 	Data mPassword;
+
+	Uri mRegURI;
 
 	int mRegisterDuration;
 

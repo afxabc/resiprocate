@@ -145,9 +145,6 @@ void AudioWrite::thread()
 	}
 	pDSN_->SetNotificationPositions(MAX_AUDIO_BUF, DSBPositionNotify);
 
-	pDSB8_->SetCurrentPosition(0);
-	HRESULT hr = pDSB8_->Play(0, 0, DSBPLAY_LOOPING);
-
 	LPVOID buf = NULL;
 	DWORD  buf_len = 0;
 	DWORD obj = WAIT_OBJECT_0;
@@ -160,6 +157,16 @@ void AudioWrite::thread()
 	bool empty = false;
 
 	Buffer tmp;
+
+	if (SUCCEEDED(pDSB8_->Lock(0, totalSize, &buf, &buf_len, NULL, NULL, 0)))
+	{
+		memset(buf, 0, buf_len);
+		pDSB8_->Unlock(buf, buf_len, NULL, 0);
+	}
+
+	pDSB8_->SetCurrentPosition(0);
+	HRESULT hr = pDSB8_->Play(0, 0, DSBPLAY_LOOPING);
+
 	while (!mShutdown)
 	{
 		if (!playQueue_.getFront(tmp, ptime_/2))

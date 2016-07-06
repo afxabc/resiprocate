@@ -156,11 +156,13 @@
     <ClCompile Include="basicClientUserAgent.cxx" />
     <ClCompile Include="RccUserAgent.cpp" />
     <ClCompile Include="SipClientUdp.cpp" />
+    <ClCompile Include="timestamp.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="basicClientCall.hxx" />
     <ClInclude Include="basicClientUserAgent.hxx" />
     <ClInclude Include="RccUserAgent.h" />
+    <ClInclude Include="timestamp.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
