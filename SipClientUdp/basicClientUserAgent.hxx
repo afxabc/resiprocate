@@ -177,6 +177,7 @@ private:
 	Data mPassword;
 
 	Uri mRegURI;
+	bool mRegReport;
 
 	int mRegisterDuration;
 

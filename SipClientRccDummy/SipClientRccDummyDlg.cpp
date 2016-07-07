@@ -96,7 +96,8 @@ CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	, remoteNum_(_T("1001"))
 //	, remoteNum_(_T("9664"))		//音乐
 //	, remoteNum_(_T("9196"))		//echo
-	, rtpIP_("10.10.3.100")
+//	, rtpIP_("10.10.3.100")
+	, rccPort_(RCC_SERVER_PORT_BASE)
 	, rtpPort_(RCC_RTP_PORT_BASE)
 //	, rtpPayload_(0)		//"ULaw"
 	, rtpPayload_(8)		//"ALaw"
@@ -106,7 +107,10 @@ CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	, audioTest_(FALSE)
 	, audioCall_(FALSE)
 	, audioSrc_(0)
+	, numIcome_(_T(""))
 {
+	memset(rtpIP_, 0, RccMessage::IP_STR_SIZE);
+	memset(rccIP_, 0, RccMessage::IP_STR_SIZE);
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
 
@@ -118,6 +122,7 @@ void CSipClientRccDummyDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Control(pDX, IDC_MSG_LIST, msgList_);
 	DDX_Check(pDX, IDC_AUDIO_TEST, audioTest_);
 	DDX_CBIndex(pDX, IDC_AUDIO_SRC, audioSrc_);
+	DDX_Text(pDX, IDC_INCOME_NUM, numIcome_);
 }
 
 BEGIN_MESSAGE_MAP(CSipClientRccDummyDlg, CDialogEx)
@@ -134,7 +139,7 @@ END_MESSAGE_MAP()
 
 
 // CSipClientRccDummyDlg 消息处理程序
-
+extern int LoadParamString(const char* profile, char* AppName, char* KeyName, char* KeyVal);
 BOOL CSipClientRccDummyDlg::OnInitDialog()
 {
 	CDialogEx::OnInitDialog();
@@ -145,13 +150,24 @@ BOOL CSipClientRccDummyDlg::OnInitDialog()
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
 	// TODO: 在此添加额外的初始化代码
+	static const char* finame = "./config.txt";
+	char tmpBuf[1024];
+	if (LoadParamString(finame, "RTP", "ADDR", rtpIP_) < 2)
+		strcpy(rtpIP_, "10.10.3.100");
+	if (LoadParamString(finame, "RTP", "PORT", tmpBuf) >= 2)
+		rtpPort_ = atoi(tmpBuf);
+	if (LoadParamString(finame, "RCC", "ADDR", rccIP_) < 2)
+		strcpy(rccIP_, "10.10.3.100");
+	if (LoadParamString(finame, "RCC", "PORT", tmpBuf) >= 2)
+		rccPort_ = atoi(tmpBuf);
+
 	int ret = 0;
 	while ((ret = rtpSession_.Create(rtpPort_)) < 0)
 	{
 		TRACE("tpSession_.Create(%d) return %d !!!\n", rtpPort_, ret);
 		rtpPort_ += 2;
 	}
-	rccAgent_.startAgent(RCC_CLIENT_PORT_BASE, NULL, RCC_SERVER_PORT_BASE, "10.10.3.100");
+	rccAgent_.startAgent(RCC_CLIENT_PORT_BASE, NULL, rccPort_, rccIP_);
 	this->run();
 
 //	audioRead_.enumDevices();
@@ -319,20 +335,40 @@ void CSipClientRccDummyDlg::OnOK()
 		switch (msg->mType)
 		{
 		case RccMessage::CALL_ACCEPT:
-			str.Format("应答：RTP(%s:%d), codec(%d, %d)", msg->rccAccept.mRtpIP, msg->rccAccept.mRtpPort, msg->rccAccept.mRtpPayload, msg->rccAccept.mRtpRate);
+			str.Format("应答：RTP(%s:%d)", msg->rccAccept.mRtpIP, msg->rccAccept.mRtpPort);
+			{
+				USES_CONVERSION;
+				msgList_.AddString(A2W(str));
+			}
+			str.Format("应答：codec(%d, %d)", msg->rccAccept.mRtpPayload, msg->rccAccept.mRtpRate);
+
 			remoteRtpIP_ = msg->rccAccept.mRtpIP;
 			remoteRtpPort_ = msg->rccAccept.mRtpPort;
 			remoteRtpPayload_ = msg->rccAccept.mRtpPayload;
 			remoteRtpRate_ = msg->rccAccept.mRtpRate;
 			break;
 		case RccMessage::CALL_INVITE:
-			str.Format("来电：%s, RTP(%s:%d), codec(%d, %d)", msg->rccInvite.mCallNum, msg->rccInvite.mRtpIP, msg->rccInvite.mRtpPort, msg->rccInvite.mRtpPayload, msg->rccInvite.mRtpRate);
+			{
+				USES_CONVERSION;
+				numIcome_.Format(_T(" 来电号码：%s"), A2W(msg->rccInvite.mCallNum));
+				UpdateData(FALSE);
+				this->GetDlgItem(IDC_ACCEPT)->EnableWindow(TRUE);
+			}
+
+			str.Format("来电：RTP(%s:%d)", msg->rccInvite.mRtpIP, msg->rccInvite.mRtpPort);
+			{
+				USES_CONVERSION;
+				msgList_.AddString(A2W(str));
+			}
+			str.Format("来电：codec(%d, %d)", msg->rccInvite.mRtpPayload, msg->rccInvite.mRtpRate);
+			
 			remoteRtpIP_ = msg->rccAccept.mRtpIP;
 			remoteRtpPort_ = msg->rccAccept.mRtpPort;
 			remoteRtpPayload_ = msg->rccAccept.mRtpPayload;
 			remoteRtpRate_ = msg->rccAccept.mRtpRate;
 			break;
 		case RccMessage::CALL_CONNECTED:
+			this->GetDlgItem(IDC_ACCEPT)->EnableWindow(FALSE);
 			str = "通话中......";
 			audioCall_ = TRUE;
 			rtpSession_.ClearDestinations();
@@ -348,6 +384,9 @@ void CSipClientRccDummyDlg::OnOK()
 				audioFile_.start(remoteRtpRate_, PTIME);
 			break;
 		case RccMessage::CALL_CLOSE:
+			numIcome_ = _T("");
+			UpdateData(FALSE);
+			this->GetDlgItem(IDC_ACCEPT)->EnableWindow(FALSE);
 			audioWrite_.stop();
 			audioRead_.stop();
 			audioFile_.stop();

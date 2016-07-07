@@ -126,7 +126,8 @@ BasicClientUserAgent::BasicClientUserAgent() :
 	mDumShutdownRequested(false),
 	mDumShutdown(false),
 	mRegistrationRetryDelayTime(0),
-	mCurrentNotifyTimerId(0)
+	mCurrentNotifyTimerId(0),
+	mRegReport(false)
 {
 
 	// Install Managers
@@ -420,6 +421,7 @@ void resip::BasicClientUserAgent::registerSession(const char* num)
 	mProfile->setDefaultFrom(sipUri);
 	mProfile->setDigestCredential(mSipHost, mRegURI.user(), mPassword);
 
+	mRegReport = true;
 	InfoLog(<< "register for " << sipUri);
 	mDum->send(mDum->makeRegistration(sipUri));
 }
@@ -625,12 +627,15 @@ BasicClientUserAgent::onSuccess(ClientRegistrationHandle h, const SipMessage& ms
 	{
 	}
 
-	bool newReg = !mRegHandle.isValid();
 	mRegHandle = h;
 	mRegistrationRetryDelayTime = 0;  // reset
 
-	if (newReg)
+	if (mRegReport)
+	{
 		mRccAgent.sendMessageResult(true, RccMessage::CALL_REGISTER);
+		mRegReport = false;
+	}
+		
 	mRegTimestamp = Timestamp::NOW();
 }
 

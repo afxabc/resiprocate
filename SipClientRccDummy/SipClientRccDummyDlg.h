@@ -66,13 +66,15 @@ protected:
 	CString remoteNum_;
 	CListBox msgList_;
 
+	char rccIP_[RccMessage::IP_STR_SIZE];
+	unsigned short rccPort_;
 	RccUserAgent rccAgent_;
 	typedef Queue<resip::Data> QUEUE;
 	QUEUE queue_;
 
 	RTPSession rtpSession_;
 
-	const char* rtpIP_;
+	char rtpIP_[RccMessage::IP_STR_SIZE];
 	unsigned short rtpPort_;
 	unsigned char rtpPayload_;
 	unsigned int rtpRate_;
@@ -88,4 +90,6 @@ protected:
 	BOOL audioTest_;
 	BOOL audioCall_;
 	int audioSrc_;
+public:
+	CString numIcome_;
 };
