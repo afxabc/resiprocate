@@ -1,6 +1,11 @@
 #include <time.h>
 #include "timestamp.h"
 
+#ifdef WIN32
+#if (_MSC_VER <= 1500)
+#define snprintf _snprintf
+#endif
+#endif
 
 Timestamp Timestamp::NOW()
 {

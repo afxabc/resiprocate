@@ -4,6 +4,7 @@
 	Version="8.00"
 	Name="pcre"
 	ProjectGUID="{B933F895-8EFB-4FDD-A46D-09B8C00D1D26}"
+	RootNamespace="pcre"
 	Keyword="Win32Proj"
 	>
 	<Platforms>
@@ -46,7 +47,7 @@
 				PreprocessorDefinitions="WIN32;_DEBUG"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
 				DebugInformationFormat="3"

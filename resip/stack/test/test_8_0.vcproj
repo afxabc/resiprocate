@@ -46,7 +46,7 @@
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE;USE_ARES"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
 				BufferSecurityCheck="true"
 				RuntimeTypeInfo="true"
 				UsePrecompiledHeader="0"

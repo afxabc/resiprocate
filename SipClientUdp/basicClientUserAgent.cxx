@@ -116,6 +116,7 @@ BasicClientUserAgent::BasicClientUserAgent() :
 	mSipPort(0),
 	mRegisterDuration(3600),
 	mTransport(NULL),
+	mSecurity(NULL),
 	mOutboundEnabled(false),
 	mProfile(new MasterProfile),
 	mPollGrp(FdPollGrp::create()),  // Will create EPoll implementation if available, otherwise FdPoll

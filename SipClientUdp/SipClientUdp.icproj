@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="gb2312"?>
+<VisualStudioProject
+	ProjectType="Intel C++ Project"
+	Version="11.1"
+	Name="SipClientUdp"
+	ProjectGUID="{849F48D8-6807-404A-8554-279DFED1F646}"
+	VCNestedProjectGUID="{97DEF56F-3D6B-4F1F-8241-3306B7774F7D}"
+	VCNestedProjectFileName="SipClientUdp.vcproj">
+	<Configurations/>
+	<Files/>
+</VisualStudioProject>

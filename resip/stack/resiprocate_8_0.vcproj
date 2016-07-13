@@ -47,7 +47,7 @@
 				PreprocessorDefinitions="WIN32;_DEBUG;_LIB;USE_ARES;USE_IPV6;LEAK_CHECK"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="3"
+				RuntimeLibrary="1"
 				BufferSecurityCheck="true"
 				RuntimeTypeInfo="true"
 				UsePrecompiledHeader="0"
@@ -735,6 +735,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\TcpConnectState.cxx"
+				>
+			</File>
+			<File
 				RelativePath=".\TcpTransport.cxx"
 				>
 			</File>
@@ -824,10 +828,6 @@
 			</File>
 			<File
 				RelativePath=".\Transport.cxx"
-				>
-			</File>
-			<File
-				RelativePath=".\TcpConnectState.cxx"
 				>
 			</File>
 			<File
@@ -1440,6 +1440,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\TcpConnectState.hxx"
+				>
+			</File>
+			<File
 				RelativePath=".\TcpTransport.hxx"
 				>
 			</File>
@@ -1517,10 +1521,6 @@
 			</File>
 			<File
 				RelativePath=".\Transport.hxx"
-				>
-			</File>
-			<File
-				RelativePath=".\TcpConnectState.hxx"
 				>
 			</File>
 			<File

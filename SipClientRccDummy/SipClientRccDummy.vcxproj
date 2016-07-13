@@ -28,9 +28,9 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
-    <PlatformToolset>v140</PlatformToolset>
+    <PlatformToolset>v140_xp</PlatformToolset>
     <CharacterSet>Unicode</CharacterSet>
-    <UseOfMfc>Dynamic</UseOfMfc>
+    <UseOfMfc>Static</UseOfMfc>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -96,9 +96,10 @@
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>jrtplib.lib;rutil.lib;ares.lib;winmm.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>..\Win32\Debug;$(OutDir)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>jrtplib.lib;rutil.lib;ares.lib;winmm.lib;uafxcwd.lib;LIBCMTD.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>.\Win32\Debug;$(OutDir)</AdditionalLibraryDirectories>
       <UACExecutionLevel>AsInvoker</UACExecutionLevel>
+      <IgnoreSpecificDefaultLibraries>uafxcwd.lib;LIBCMTD.lib</IgnoreSpecificDefaultLibraries>
     </Link>
     <Midl>
       <MkTypLibCompatible>false</MkTypLibCompatible>
