@@ -93,7 +93,7 @@ static const int PTIME = 20;
 CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_SIPCLIENTRCCDUMMY_DIALOG, pParent)
 	, localNum_(_T("1000"))
-	, remoteNum_(_T("1001"))
+	, remoteNum_(_T("5000"))
 //	, remoteNum_(_T("9664"))		//“Ù¿÷
 //	, remoteNum_(_T("9196"))		//echo
 //	, rtpIP_("10.10.3.100")
@@ -135,6 +135,7 @@ BEGIN_MESSAGE_MAP(CSipClientRccDummyDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_CLOSECALL, &CSipClientRccDummyDlg::OnBnClickedClosecall)
 	ON_BN_CLICKED(IDC_AUDIO_TEST, &CSipClientRccDummyDlg::OnBnClickedAudioTest)
 	ON_CBN_SELCHANGE(IDC_AUDIO_SRC, &CSipClientRccDummyDlg::OnCbnSelchangeAudioSrc)
+	ON_COMMAND_RANGE(IDC_DTMF_0, IDC_DTMF_SHARP, &CSipClientRccDummyDlg::OnDtmfKey)
 END_MESSAGE_MAP()
 
 
@@ -486,13 +487,6 @@ void CSipClientRccDummyDlg::OnBnClickedAudioTest()
 	UpdateData();
 	if (audioTest_)
 	{
-		/*
-		rtpSession_.AddDestination(ntohl(inet_addr(rtpIP_)), rtpPort_);
-		rtpSession_.SetDefaultPayloadType(rtpPayload_);
-		rtpSession_.SetTimestampUnit(1.0 / remoteRtpRate_);
-		rtpSession_.SetDefaultTimeStampIncrement(PTIME*remoteRtpRate_ / 1000);
-		rtpSession_.SetDefaultMark(false);
-		*/
 		audioWrite_.start(rtpRate_, PTIME);
 		if (audioSrc_ == 0)
 			audioRead_.start(rtpRate_, PTIME);
@@ -521,4 +515,48 @@ void CSipClientRccDummyDlg::OnCbnSelchangeAudioSrc()
 		audioRead_.start(rtpRate_, PTIME);
 	else if (audioSrc_ == 1)
 		audioFile_.start(rtpRate_, PTIME);
+}
+
+
+typedef struct _telephone_event
+{
+#ifdef RTP_BIG_ENDIAN
+	uint32_t evt : 8;
+	uint32_t E : 1;
+	uint32_t R : 1;
+	uint32_t volume : 6;
+	uint32_t duration : 16;
+#else
+	unsigned __int32 evt : 8;
+	unsigned __int32 volume : 6;
+	unsigned __int32 R : 1;
+	unsigned __int32 E : 1;
+	unsigned __int32 duration : 16;
+#endif
+}telephone_event_t;
+
+#define TELEPHONE_EVENT 101
+void CSipClientRccDummyDlg::OnDtmfKey(UINT key_id)
+{
+	if (!audioCall_)
+		return;
+
+	int evt = key_id - IDC_DTMF_0;
+	int vol = 10;
+	int duration = 480 / 3;
+
+	telephone_event_t event_hdr;
+	event_hdr.evt = evt;
+	event_hdr.R = 0;
+	event_hdr.E = 0;
+	event_hdr.volume = vol;
+	event_hdr.duration = duration;
+	rtpSession_.SendPacket((void *)(&event_hdr), sizeof(event_hdr), (unsigned char)TELEPHONE_EVENT, true, (unsigned long)0);
+
+	event_hdr.duration += duration;
+	rtpSession_.SendPacket((void *)(&event_hdr), sizeof(event_hdr), (unsigned char)TELEPHONE_EVENT, false, (unsigned long)0);
+
+	event_hdr.duration += duration;
+	event_hdr.E = 1;
+	rtpSession_.SendPacket((void *)(&event_hdr), sizeof(event_hdr), (unsigned char)TELEPHONE_EVENT, false, (unsigned long)480);
 }

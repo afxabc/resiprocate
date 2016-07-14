@@ -119,6 +119,12 @@ void AudioWrite::inputPcm(const char * data, int len)
 		return;
 	}
 
+	if (recvBuff_.readableBytes() > bufferNotifySize_*10)
+	{
+		TRACE("Tooooooooo much data !!!!!\n");
+		recvBuff_.erase();
+	}
+
 	int matchSize = bufferNotifySize_;
 	recvBuff_.pushBack(data, len, true);
 	if (recvBuff_.readableBytes() < matchSize)
@@ -178,6 +184,19 @@ void AudioWrite::thread()
 
 			tmp.erase();
 			tmp.pushBack((unsigned char)0, bufferNotifySize_, true);		//¾²Òô
+		}
+		else
+		{
+			pDSB8_->GetCurrentPosition(&offsetPlay, NULL);
+			DWORD doffset = (offsetPlay - offset + totalSize) % totalSize;
+			if (doffset <= bufferNotifySize_)
+			{
+				::ResetEvent(ev);
+				obj = WaitForSingleObject(ev, INFINITE);
+				if ((obj < WAIT_OBJECT_0) || (obj >= WAIT_OBJECT_0 + MAX_AUDIO_BUF))
+					continue;
+			}
+
 		}
 
 		if (FAILED(pDSB8_->Lock(offset, bufferNotifySize_, &buf, &buf_len, NULL, NULL, 0)))

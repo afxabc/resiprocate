@@ -49,6 +49,8 @@ protected:
 	afx_msg void OnBnClickedAudioTest();
 	afx_msg void OnCbnSelchangeAudioSrc();
 
+	afx_msg void OnDtmfKey(UINT key_id);
+
 	// Í¨¹ý ThreadIf ¼Ì³Ð
 	virtual void thread() override;
 	virtual void OnOK();
@@ -92,4 +94,5 @@ protected:
 	int audioSrc_;
 public:
 	CString numIcome_;
+	afx_msg void OnBnClickedDtmf0();
 };
