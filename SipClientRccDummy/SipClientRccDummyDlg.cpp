@@ -96,8 +96,9 @@ CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	, remoteNum_(_T("5000"))
 //	, remoteNum_(_T("9664"))		//音乐
 //	, remoteNum_(_T("9196"))		//echo
-//	, rtpIP_("10.10.3.100")
+	, rccIP_("127.0.0.1")
 	, rccPort_(RCC_SERVER_PORT_BASE)
+	, rtpIP_("127.0.0.1")
 	, rtpPort_(RCC_RTP_PORT_BASE)
 //	, rtpPayload_(0)		//"ULaw"
 	, rtpPayload_(8)		//"ALaw"
@@ -109,8 +110,6 @@ CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	, audioSrc_(0)
 	, numIcome_(_T(""))
 {
-	memset(rtpIP_, 0, RccMessage::IP_STR_SIZE);
-	memset(rccIP_, 0, RccMessage::IP_STR_SIZE);
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
 
@@ -153,12 +152,12 @@ BOOL CSipClientRccDummyDlg::OnInitDialog()
 	// TODO: 在此添加额外的初始化代码
 	static const char* finame = "./config.txt";
 	char tmpBuf[1024];
-	if (LoadParamString(finame, "RTP", "ADDR", rtpIP_) < 2)
-		strcpy(rtpIP_, "10.10.3.100");
+	if (LoadParamString(finame, "RTP", "ADDR", tmpBuf) >= 2)
+		rtpIP_ = tmpBuf;
 	if (LoadParamString(finame, "RTP", "PORT", tmpBuf) >= 2)
 		rtpPort_ = atoi(tmpBuf);
-	if (LoadParamString(finame, "RCC", "ADDR", rccIP_) < 2)
-		strcpy(rccIP_, "10.10.3.100");
+	if (LoadParamString(finame, "RCC", "ADDR", tmpBuf) >= 2)
+		rccIP_ = tmpBuf;
 	if (LoadParamString(finame, "RCC", "PORT", tmpBuf) >= 2)
 		rccPort_ = atoi(tmpBuf);
 
@@ -168,7 +167,7 @@ BOOL CSipClientRccDummyDlg::OnInitDialog()
 		TRACE("tpSession_.Create(%d) return %d !!!\n", rtpPort_, ret);
 		rtpPort_ += 2;
 	}
-	rccAgent_.startAgent(RCC_CLIENT_PORT_BASE, NULL, rccPort_, rccIP_);
+	rccAgent_.startAgent(RCC_CLIENT_PORT_BASE, NULL, rccPort_, rccIP_.c_str());
 	this->run();
 
 //	audioRead_.enumDevices();
@@ -264,6 +263,8 @@ void CSipClientRccDummyDlg::thread()
 			if (!FD_ISSET(0, &fdset))
 				continue;
 			
+			resip::Lock lock(rtpMutex_);
+
 			rtpSession_.PollData();
 			// check incoming packets
 			if (rtpSession_.GotoFirstSourceWithData())
@@ -336,17 +337,19 @@ void CSipClientRccDummyDlg::OnOK()
 		switch (msg->mType)
 		{
 		case RccMessage::CALL_ACCEPT:
-			str.Format("应答：RTP(%s:%d)", msg->rccAccept.mRtpIP, msg->rccAccept.mRtpPort);
 			{
-				USES_CONVERSION;
-				msgList_.AddString(A2W(str));
-			}
-			str.Format("应答：codec(%d, %d)", msg->rccAccept.mRtpPayload, msg->rccAccept.mRtpRate);
+				struct in_addr addr;
+				addr.S_un.S_addr = htonl(msg->rccAccept.mRtpIP);
+				remoteRtpIP_ = inet_ntoa(addr);
+				remoteRtpPort_ = msg->rccAccept.mRtpPort;
+				remoteRtpPayload_ = msg->rccAccept.mRtpPayload;
+				remoteRtpRate_ = msg->rccAccept.mRtpRate;
 
-			remoteRtpIP_ = msg->rccAccept.mRtpIP;
-			remoteRtpPort_ = msg->rccAccept.mRtpPort;
-			remoteRtpPayload_ = msg->rccAccept.mRtpPayload;
-			remoteRtpRate_ = msg->rccAccept.mRtpRate;
+				USES_CONVERSION;
+				str.Format("应答：RTP(%s:%d)", remoteRtpIP_.c_str(), remoteRtpPort_);
+				msgList_.AddString(A2W(str));
+				str.Format("应答：codec(%d, %d)", remoteRtpPayload_, remoteRtpRate_);
+			}
 			break;
 		case RccMessage::CALL_INVITE:
 			{
@@ -354,26 +357,28 @@ void CSipClientRccDummyDlg::OnOK()
 				numIcome_.Format(_T(" 来电号码：%s"), A2W(msg->rccInvite.mCallNum));
 				UpdateData(FALSE);
 				this->GetDlgItem(IDC_ACCEPT)->EnableWindow(TRUE);
-			}
 
-			str.Format("来电：RTP(%s:%d)", msg->rccInvite.mRtpIP, msg->rccInvite.mRtpPort);
-			{
-				USES_CONVERSION;
+				struct in_addr addr;
+				addr.S_un.S_addr = htonl(msg->rccInvite.mRtpIP);
+				remoteRtpIP_ = inet_ntoa(addr);
+				remoteRtpPort_ = msg->rccInvite.mRtpPort;
+				remoteRtpPayload_ = msg->rccInvite.mRtpPayload;
+				remoteRtpRate_ = msg->rccInvite.mRtpRate;
+
+				str.Format("来电：RTP(%s:%d)", remoteRtpIP_.c_str(), remoteRtpPort_);
 				msgList_.AddString(A2W(str));
+				str.Format("来电：codec(%d, %d)", remoteRtpPayload_, remoteRtpRate_);
 			}
-			str.Format("来电：codec(%d, %d)", msg->rccInvite.mRtpPayload, msg->rccInvite.mRtpRate);
-			
-			remoteRtpIP_ = msg->rccAccept.mRtpIP;
-			remoteRtpPort_ = msg->rccAccept.mRtpPort;
-			remoteRtpPayload_ = msg->rccAccept.mRtpPayload;
-			remoteRtpRate_ = msg->rccAccept.mRtpRate;
 			break;
 		case RccMessage::CALL_CONNECTED:
 			this->GetDlgItem(IDC_ACCEPT)->EnableWindow(FALSE);
 			str = "通话中......";
 			audioCall_ = TRUE;
-			rtpSession_.ClearDestinations();
-			rtpSession_.AddDestination(ntohl(inet_addr(remoteRtpIP_.begin())), remoteRtpPort_);
+			{
+				resip::Lock lock(rtpMutex_);
+				rtpSession_.ClearDestinations();
+			}
+			rtpSession_.AddDestination(ntohl(inet_addr(remoteRtpIP_.c_str())), remoteRtpPort_);
 			rtpSession_.SetDefaultPayloadType(remoteRtpPayload_);
 			rtpSession_.SetTimestampUnit(1.0 / remoteRtpRate_);
 			rtpSession_.SetDefaultTimeStampIncrement(PTIME*remoteRtpRate_/1000);
@@ -391,8 +396,11 @@ void CSipClientRccDummyDlg::OnOK()
 			audioWrite_.stop();
 			audioRead_.stop();
 			audioFile_.stop();
-			str.Format("结束通话。 (%d)", msg->rccClose.mError);
-			rtpSession_.ClearDestinations();
+			str.Format("结束通话。 (%d)", msg->rccClose.mReason);
+			{
+				resip::Lock lock(rtpMutex_);
+				rtpSession_.ClearDestinations();
+			}
 			audioCall_ = FALSE;
 			break;
 		case RccMessage::CALL_RESULT:
@@ -429,7 +437,7 @@ void CSipClientRccDummyDlg::OnBnClickedInvite()
 	UpdateData();
 
 	USES_CONVERSION;
-	rccAgent_.sendMessageInvite(W2A(remoteNum_), rtpIP_, rtpPort_, rtpPayload_, rtpRate_);
+	rccAgent_.sendMessageInvite(W2A(remoteNum_), rtpIP_.c_str(), rtpPort_, rtpPayload_, rtpRate_);
 }
 
 void CSipClientRccDummyDlg::OnBnClickedAccept()
@@ -438,7 +446,7 @@ void CSipClientRccDummyDlg::OnBnClickedAccept()
 	UpdateData();
 
 	USES_CONVERSION;
-	rccAgent_.sendMessageAccept(rtpIP_, rtpPort_, rtpPayload_, rtpRate_);
+	rccAgent_.sendMessageAccept(rtpIP_.c_str(), rtpPort_, rtpPayload_, rtpRate_);
 }
 
 void CSipClientRccDummyDlg::OnBnClickedClosecall()
@@ -473,6 +481,8 @@ void CSipClientRccDummyDlg::outputPcm(char * data, int len)
 		short* s16 = (short*)data;
 		for (int i = 0; i < len / 2; ++i)
 			pch[i] = s16_to_alaw(s16[i]);
+		
+		resip::Lock lock(rtpMutex_);
 		rtpSession_.SendPacket(pch, len/2);
 	}
 	else if (audioTest_)

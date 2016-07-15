@@ -32,7 +32,7 @@ struct RccMessage
 		CALL_RESULT,
 	};
 
-	RccMessage() : mSize(sizeof(RccMessage)) {}
+	RccMessage() : mSize(HEAD_SIZE) {}
 
 private:
 	void netToHost() const;
@@ -42,13 +42,12 @@ private:
 
 public:
 	//////////////////////////
-	//以下short，int为网络字序
+	//以下均为网络字序
 	/////////////////////////
 
+	static const int HEAD_SIZE = 3;	//type+size
 	unsigned char mType;
 	mutable short mSize;
-		
-	static const int IP_STR_SIZE = 18;
 
 	//以下消息需要附加数据
 	union 
@@ -60,25 +59,34 @@ public:
 
 		struct RccInvite
 		{
-			mutable char mRtpIP[IP_STR_SIZE+1];		//rtp地址
+			mutable unsigned int mRtpIP;			//rtp地址
 			mutable unsigned short mRtpPort;		//rtp端口
-			unsigned char mRtpPayload;				//rtp编码类型
+			mutable unsigned char mRtpPayload;		//rtp编码类型
 			mutable unsigned int mRtpRate;			//rtp码率
 			char mCallNum[1];
 		}rccInvite;
 
 		struct RccAccept
 		{
-			mutable char mRtpIP[IP_STR_SIZE+1];
+			mutable unsigned int mRtpIP;
 			mutable unsigned short mRtpPort;
-			unsigned char mRtpPayload;
+			mutable unsigned char mRtpPayload;
 			mutable unsigned int mRtpRate;
 		}rccAccept;
 
+		/*
+		0:  "ended due to an error"
+		1:  "ended due to a timeout"
+		2:  "ended due to being replaced"
+		3:  "ended locally via BYE"
+		4:  "received a BYE from peer"
+		5:  "ended locally via CANCEL"
+		6:  "received a CANCEL from peer";
+		7:  "received a rejection from peer"
+		*/
 		struct RccClose
 		{
-			unsigned char mError;
-			char mReason[1];
+			unsigned char mReason;
 		}rccClose;
 
 		struct RccResult
@@ -113,7 +121,7 @@ public:
 	bool sendMessageRegister(const char * callNumber);
 	bool sendMessageInvite(const char * callNumber, const char* rtpIP, unsigned short rtpPort, unsigned char payload, unsigned int rate);
 	bool sendMessageAccept(const char* rtpIP, unsigned short rtpPort, unsigned char payload, unsigned int rate);
-	bool sendMessageClose(unsigned char error = 0, const char* reason = NULL);
+	bool sendMessageClose(unsigned char reason = 0);
 	int getMessage(RccMessage* msg, int sz = sizeof(RccMessage));
 
 	unsigned short localPort() { return mLocalPort; }

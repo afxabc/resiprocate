@@ -390,11 +390,19 @@ void resip::BasicClientUserAgent::checkForRcc()
 		unRegisterSession();
 		break;
 	case RccMessage::CALL_INVITE:
-		openSession(msg->rccInvite.mCallNum, msg->rccInvite.mRtpIP, msg->rccInvite.mRtpPort, msg->rccInvite.mRtpPayload, msg->rccInvite.mRtpRate);
+	{
+		struct in_addr addr;
+		addr.S_un.S_addr = msg->rccInvite.mRtpIP;
+		openSession(msg->rccInvite.mCallNum, inet_ntoa(addr), msg->rccInvite.mRtpPort, msg->rccInvite.mRtpPayload, msg->rccInvite.mRtpRate);
 		break;
+	}
 	case RccMessage::CALL_ACCEPT:
-		acceptSession(msg->rccAccept.mRtpIP, msg->rccAccept.mRtpPort, msg->rccAccept.mRtpPayload, msg->rccAccept.mRtpRate);
+	{
+		struct in_addr addr;
+		addr.S_un.S_addr = msg->rccAccept.mRtpIP;
+		acceptSession(inet_ntoa(addr), msg->rccAccept.mRtpPort, msg->rccAccept.mRtpPayload, msg->rccAccept.mRtpRate);
 		break;
+	}
 	case RccMessage::CALL_CLOSE:
 		closeSession();
 		break;

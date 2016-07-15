@@ -105,6 +105,9 @@
     <None Include="res\SipClientRccDummy.rc2">
       <Filter>资源文件</Filter>
     </None>
+    <None Include="res\wave2.bin">
+      <Filter>资源文件</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\SipClientRccDummy.ico">
@@ -113,6 +116,9 @@
   </ItemGroup>
   <ItemGroup>
     <Media Include="res\8000.wav">
+      <Filter>资源文件</Filter>
+    </Media>
+    <Media Include="res\8.wav">
       <Filter>资源文件</Filter>
     </Media>
   </ItemGroup>

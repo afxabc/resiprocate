@@ -228,11 +228,13 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="res\SipClientRccDummy.rc2" />
+    <None Include="res\wave2.bin" />
   </ItemGroup>
   <ItemGroup>
     <Image Include="res\SipClientRccDummy.ico" />
   </ItemGroup>
   <ItemGroup>
+    <Media Include="res\8.wav" />
     <Media Include="res\8000.wav" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

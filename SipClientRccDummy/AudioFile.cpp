@@ -73,6 +73,7 @@ void AudioFile::thread()
 	mShutdown = false;
 	szWavData_ = szWavData_ / bufferNotifySize_*bufferNotifySize_;
 	int offset = 0;
+	int span = bufferNotifySize_;
 	while (!mShutdown && szWavData_ >= bufferNotifySize_)
 	{
 		tmSig_.wait();
@@ -86,9 +87,9 @@ void AudioFile::thread()
 		}
 
 		if (callback_)
-			callback_->outputPcm(pWavData_ + offset, bufferNotifySize_);
+			callback_->outputPcm(pWavData_ + offset, span);
+		offset += span;
 
-		offset += bufferNotifySize_;
 		if (offset >= szWavData_)
 			offset = -(1000/ ptime_);
 	}

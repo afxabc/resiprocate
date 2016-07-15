@@ -68,20 +68,22 @@ protected:
 	CString remoteNum_;
 	CListBox msgList_;
 
-	char rccIP_[RccMessage::IP_STR_SIZE];
+	std::string rccIP_;
 	unsigned short rccPort_;
 	RccUserAgent rccAgent_;
 	typedef Queue<resip::Data> QUEUE;
 	QUEUE queue_;
 
+	resip::Mutex rtpMutex_;
 	RTPSession rtpSession_;
 
-	char rtpIP_[RccMessage::IP_STR_SIZE];
+	static const int IP_ADDR_SIZE = 18;
+	std::string rtpIP_;
 	unsigned short rtpPort_;
 	unsigned char rtpPayload_;
 	unsigned int rtpRate_;
 
-	resip::Data remoteRtpIP_;
+	std::string remoteRtpIP_;
 	unsigned short remoteRtpPort_;
 	unsigned char remoteRtpPayload_;
 	unsigned int remoteRtpRate_;
@@ -92,7 +94,5 @@ protected:
 	BOOL audioTest_;
 	BOOL audioCall_;
 	int audioSrc_;
-public:
 	CString numIcome_;
-	afx_msg void OnBnClickedDtmf0();
 };
