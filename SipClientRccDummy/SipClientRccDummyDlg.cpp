@@ -90,6 +90,8 @@ const Codec Codec::G722_8000("G722", 9, 8000);
 */
 
 static const int PTIME = 20;
+static const unsigned char PAYLOAD_AUDIO = 8;
+static const unsigned int RATE_AUDIO = 8000;
 CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_SIPCLIENTRCCDUMMY_DIALOG, pParent)
 	, localNum_(_T("1000"))
@@ -98,11 +100,7 @@ CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 //	, remoteNum_(_T("9196"))		//echo
 	, rccIP_("127.0.0.1")
 	, rccPort_(RCC_SERVER_PORT_BASE)
-	, rtpIP_("127.0.0.1")
-	, rtpPort_(RCC_RTP_PORT_BASE)
-//	, rtpPayload_(0)		//"ULaw"
-	, rtpPayload_(8)		//"ALaw"
-	, rtpRate_(8000)
+	, rtpAudio_(this, "127.0.0.1", RCC_RTP_PORT_BASE, PAYLOAD_AUDIO, RATE_AUDIO)
 	, audioRead_(this)
 	, audioFile_(this)
 	, audioTest_(FALSE)
@@ -153,20 +151,21 @@ BOOL CSipClientRccDummyDlg::OnInitDialog()
 	static const char* finame = "./config.txt";
 	char tmpBuf[1024];
 	if (LoadParamString(finame, "RTP", "ADDR", tmpBuf) >= 2)
-		rtpIP_ = tmpBuf;
+	{
+		rtpAudio_.ip() = tmpBuf;
+	}
+
 	if (LoadParamString(finame, "RTP", "PORT", tmpBuf) >= 2)
-		rtpPort_ = atoi(tmpBuf);
+	{
+		unsigned short rtpPortBase = atoi(tmpBuf);
+		rtpPortBase = rtpAudio_.tryPort(rtpPortBase);
+	}
+
 	if (LoadParamString(finame, "RCC", "ADDR", tmpBuf) >= 2)
 		rccIP_ = tmpBuf;
 	if (LoadParamString(finame, "RCC", "PORT", tmpBuf) >= 2)
 		rccPort_ = atoi(tmpBuf);
 
-	int ret = 0;
-	while ((ret = rtpSession_.Create(rtpPort_)) < 0)
-	{
-		TRACE("tpSession_.Create(%d) return %d !!!\n", rtpPort_, ret);
-		rtpPort_ += 2;
-	}
 	rccAgent_.startAgent(RCC_CLIENT_PORT_BASE, NULL, rccPort_, rccIP_.c_str());
 	this->run();
 
@@ -222,7 +221,7 @@ bool CSipClientRccDummyDlg::checkForRcc()
 		return false;
 
 	static char buf[2048];
-	int sz = rccAgent_.getMessage((RccMessage*)buf, 2048);
+	int sz = rccAgent_.getMessage(buf, 2048);
 	if (sz > 0)
 	{
 		queue_.putBack(resip::Data(buf, sz));
@@ -234,201 +233,146 @@ bool CSipClientRccDummyDlg::checkForRcc()
 
 void CSipClientRccDummyDlg::thread()
 {
-	fd_set fdset;
-	struct timeval rttprev = { 0,0 }, rtt, tv;
-	SOCKET sock1, sock2;
-	rtpSession_.GetRTPSocket(&sock1);
-	rtpSession_.GetRTCPSocket(&sock2);
-
-	int tick;
-	static const int PCM_BUF_SIZE = 2048;
-	short pcmBuf[PCM_BUF_SIZE];
-
+	mShutdown = false;
 	while (!isShutdown())
 	{
 		if (!checkForRcc() && !audioWrite_.isStart())
 			Sleep(20);
 
-		if (audioWrite_.isStart())
-		{
-			
-			tv.tv_sec = 0;
-			tv.tv_usec = PTIME*1000;
-			FD_ZERO(&fdset);
-			FD_SET(sock1, &fdset);
-			FD_SET(sock2, &fdset);
-			FD_SET(0, &fdset); // check for keypress
-
-			select(FD_SETSIZE, &fdset, NULL, NULL, &tv);
-			if (!FD_ISSET(0, &fdset))
-				continue;
-			
-			resip::Lock lock(rtpMutex_);
-
-			rtpSession_.PollData();
-			// check incoming packets
-			if (rtpSession_.GotoFirstSourceWithData())
-			{
-				do
-				{
-					RTPSourceData *srcdat;
-					srcdat = rtpSession_.GetCurrentSourceInfo();
-					rtt = srcdat->INF_GetRoundTripTime();
-					RTPPacket *pack;
-					while ((pack = rtpSession_.GetNextPacket()) != NULL)
-					{
-						// You can examine the data here
-						char* data = (char*)pack->GetPayload();
-						int len = pack->GetPayloadLength();
-						/*
-						static int tick0 = ::GetTickCount();
-						tick = ::GetTickCount(); 
-						TRACE("[%d] RTPPacket len=%d\n", tick-tick0, len);
-						tick0 = tick;
-						*/
-						while (pack->GetPayloadType() == rtpPayload_ && len > 0)	//is alaw?
-						{
-							int sz = (len > PCM_BUF_SIZE) ? PCM_BUF_SIZE : len;
-							for (int j = 0; j<sz; j++)
-								pcmBuf[j] = alaw_to_s16(data[j]);
-							audioWrite_.inputPcm((char*)pcmBuf, sz*2);
-							len -= sz;
-							data += sz;
-						}
-
-						// we don't longer need the packet, so
-						// we'll delete it
-						delete pack;
-					}
-				} while (rtpSession_.GotoNextSourceWithData());
-			}
-
-		}
 	}
 }
 
-void CSipClientRccDummyDlg::printRccAck(bool ok, RccMessage::MessageType which, CStringA& str)
+void CSipClientRccDummyDlg::showString(LPCSTR pszFormat, ...)
 {
-	switch (which)
-	{
-	case RccMessage::CALL_REGISTER:
-		str = "注册";
-		break;
-	case RccMessage::CALL_UNREGISTER:
-		str = "注销";
-		break;
-	case RccMessage::CALL_INVITE:
-		str = "呼叫";
-		break;
-	default:
-		str = "执行";
-	}
-	str += (ok) ? "成功" : "失败";
+	CStringA str;
+	va_list argList;
+	va_start(argList, pszFormat);
+	str.FormatV(pszFormat, argList);
+	va_end(argList);
+
+	USES_CONVERSION;
+	msgList_.AddString(A2W(str));
+	msgList_.SetCurSel(msgList_.GetCount() - 1);
 }
 
 void CSipClientRccDummyDlg::OnOK()
 {
 	resip::Data data;
-	CStringA str;
 	while (queue_.getFront(data))
 	{
-		str = "";
-		RccMessage* msg = (RccMessage*)data.begin();
-		switch (msg->mType)
-		{
-		case RccMessage::CALL_ACCEPT:
-			{
-				struct in_addr addr;
-				addr.S_un.S_addr = htonl(msg->rccAccept.mRtpIP);
-				remoteRtpIP_ = inet_ntoa(addr);
-				remoteRtpPort_ = msg->rccAccept.mRtpPort;
-				remoteRtpPayload_ = msg->rccAccept.mRtpPayload;
-				remoteRtpRate_ = msg->rccAccept.mRtpRate;
-
-				USES_CONVERSION;
-				str.Format("应答：RTP(%s:%d)", remoteRtpIP_.c_str(), remoteRtpPort_);
-				msgList_.AddString(A2W(str));
-				str.Format("应答：codec(%d, %d)", remoteRtpPayload_, remoteRtpRate_);
-			}
-			break;
-		case RccMessage::CALL_INVITE:
-			{
-				USES_CONVERSION;
-				numIcome_.Format(_T(" 来电号码：%s"), A2W(msg->rccInvite.mCallNum));
-				UpdateData(FALSE);
-				this->GetDlgItem(IDC_ACCEPT)->EnableWindow(TRUE);
-
-				struct in_addr addr;
-				addr.S_un.S_addr = htonl(msg->rccInvite.mRtpIP);
-				remoteRtpIP_ = inet_ntoa(addr);
-				remoteRtpPort_ = msg->rccInvite.mRtpPort;
-				remoteRtpPayload_ = msg->rccInvite.mRtpPayload;
-				remoteRtpRate_ = msg->rccInvite.mRtpRate;
-
-				str.Format("来电：RTP(%s:%d)", remoteRtpIP_.c_str(), remoteRtpPort_);
-				msgList_.AddString(A2W(str));
-				str.Format("来电：codec(%d, %d)", remoteRtpPayload_, remoteRtpRate_);
-			}
-			break;
-		case RccMessage::CALL_CONNECTED:
-			this->GetDlgItem(IDC_ACCEPT)->EnableWindow(FALSE);
-			str = "通话中......";
-			audioCall_ = TRUE;
-			{
-				resip::Lock lock(rtpMutex_);
-				rtpSession_.ClearDestinations();
-			}
-			rtpSession_.AddDestination(ntohl(inet_addr(remoteRtpIP_.c_str())), remoteRtpPort_);
-			rtpSession_.SetDefaultPayloadType(remoteRtpPayload_);
-			rtpSession_.SetTimestampUnit(1.0 / remoteRtpRate_);
-			rtpSession_.SetDefaultTimeStampIncrement(PTIME*remoteRtpRate_/1000);
-			rtpSession_.SetDefaultMark(false);
-			audioWrite_.start(remoteRtpRate_, PTIME);
-			if (audioSrc_ == 0)
-				audioRead_.start(remoteRtpRate_, PTIME);
-			else if (audioSrc_ == 1)
-				audioFile_.start(remoteRtpRate_, PTIME);
-			break;
-		case RccMessage::CALL_CLOSE:
-			numIcome_ = _T("");
-			UpdateData(FALSE);
-			this->GetDlgItem(IDC_ACCEPT)->EnableWindow(FALSE);
-			audioWrite_.stop();
-			audioRead_.stop();
-			audioFile_.stop();
-			str.Format("结束通话。 (%d)", msg->rccClose.mReason);
-			{
-				resip::Lock lock(rtpMutex_);
-				rtpSession_.ClearDestinations();
-			}
-			audioCall_ = FALSE;
-			break;
-		case RccMessage::CALL_RESULT:
-			printRccAck(msg->rccResult.ok, (RccMessage::MessageType)msg->rccResult.which, str);
-			break;
-		case RccMessage::CALL_TRYING:
-			str = "呼叫中......";
-			break;
-
-		}
-
-		if (str.GetLength() > 2)
-		{
-			USES_CONVERSION;
-			msgList_.AddString(A2W(str));
-			msgList_.SetCurSel(msgList_.GetCount() - 1);
-		}
-		
+		rccAgent_.dispatchMessage(data.begin(), this);
 	}
 
 }
+
+////////////////////////// 通过 IRccMessageCallback 继承
+
+void CSipClientRccDummyDlg::onMessage(RccMessage::MessageType type)
+{
+	TRACE("onMessage : [%d]\n", (int)type);
+
+	if (type == RccMessage::RCC_CONN)
+		onMessageConn();
+}
+
+void CSipClientRccDummyDlg::onMessageAcm(RccMessage::MessageType which, unsigned char result)
+{
+	if (which >= RccMessage::RCC_END)
+		return;
+
+	static const char* msgTag[RccMessage::RCC_END] = { "??", "注册", "注销", "发起呼叫",
+		"消息响应", "应答", "释放", "连接", "扩展" };
+
+	if (result == 0)
+		showString("%s成功。", msgTag[which]);
+	else showString("%s失败（%d）！！", msgTag[which], result);
+}
+
+void CSipClientRccDummyDlg::onMessageRgst(const char * callNumber)
+{
+}
+
+void CSipClientRccDummyDlg::onMessageUrgst(const char * callNumber)
+{
+}
+
+void CSipClientRccDummyDlg::onMessageRel(unsigned char reason)
+{
+	numIcome_ = _T("");
+	UpdateData(FALSE);
+	this->GetDlgItem(IDC_ACCEPT)->EnableWindow(FALSE);
+
+	rtpAudio_.stop();
+	audioWrite_.stop();
+	audioRead_.stop();
+	audioFile_.stop();
+
+	showString("结束通话。 (%d)", (int)reason);
+	audioCall_ = FALSE;
+}
+
+void CSipClientRccDummyDlg::onMessageIam(const char * callNumber, RccRtpDataList & rtpDataList)
+{
+	USES_CONVERSION;
+	numIcome_.Format(_T(" 来电号码：%s"), A2W(callNumber));
+	UpdateData(FALSE);
+	this->GetDlgItem(IDC_ACCEPT)->EnableWindow(TRUE);
+
+	showString("来电号码：%s", callNumber);
+	for (unsigned int i = 0; i < rtpDataList.size(); ++i)
+	{
+		if (PAYLOAD_AUDIO == rtpDataList[i].payload)
+		{
+			rtpAudio_.setRemote(rtpDataList[i].ip, rtpDataList[i].port, rtpDataList[i].payload, rtpDataList[i].rate);
+
+			showString("  [%d] RTP(%s:%d)", i, rtpDataList[i].ip.c_str(), rtpDataList[i].port);
+			showString("  [%d] codec(%d, %d)", i, rtpDataList[i].payload, rtpDataList[i].rate);
+		}
+	}
+}
+
+void CSipClientRccDummyDlg::onMessageAnm(RccRtpDataList & rtpDataList)
+{
+	showString("收到应答：");
+	for (unsigned int i = 0; i < rtpDataList.size(); ++i)
+	{
+		if (PAYLOAD_AUDIO == rtpDataList[i].payload)
+		{
+			rtpAudio_.setRemote(rtpDataList[i].ip, rtpDataList[i].port, rtpDataList[i].payload, rtpDataList[i].rate);
+
+			showString("  [%d] RTP(%s:%d)", i, rtpDataList[i].ip.c_str(), rtpDataList[i].port);
+			showString("  [%d] codec(%d, %d)", i, rtpDataList[i].payload, rtpDataList[i].rate);
+		}
+	}
+}
+
+void CSipClientRccDummyDlg::onInvalidMessage(RccMessage * msg)
+{
+}
+
+void CSipClientRccDummyDlg::onMessageConn()
+{
+	this->GetDlgItem(IDC_ACCEPT)->EnableWindow(FALSE);
+
+	rtpAudio_.start(PTIME);
+	audioWrite_.start(rtpAudio_.rate(), PTIME);
+	if (audioSrc_ == 0)
+		audioRead_.start(rtpAudio_.rate(), PTIME);
+	else if (audioSrc_ == 1)
+		audioFile_.start(rtpAudio_.rate(), PTIME);
+
+	audioCall_ = TRUE;
+	showString("通话中......");
+}
+
+/////////////////////////////////////////////////////////////
 
 void CSipClientRccDummyDlg::OnBnClickedRegister()
 {
 	UpdateData();
 
 	USES_CONVERSION;
-	rccAgent_.sendMessageRegister(W2A(localNum_));
+	rccAgent_.sendMessageRgst(W2A(localNum_));
 }
 
 void CSipClientRccDummyDlg::OnBnClickedInvite()
@@ -437,7 +381,7 @@ void CSipClientRccDummyDlg::OnBnClickedInvite()
 	UpdateData();
 
 	USES_CONVERSION;
-	rccAgent_.sendMessageInvite(W2A(remoteNum_), rtpIP_.c_str(), rtpPort_, rtpPayload_, rtpRate_);
+	rccAgent_.sendMessageIam(W2A(remoteNum_), RccRtpData(rtpAudio_.ip().c_str(), rtpAudio_.port(), rtpAudio_.payload(), rtpAudio_.rate()));
 }
 
 void CSipClientRccDummyDlg::OnBnClickedAccept()
@@ -446,13 +390,13 @@ void CSipClientRccDummyDlg::OnBnClickedAccept()
 	UpdateData();
 
 	USES_CONVERSION;
-	rccAgent_.sendMessageAccept(rtpIP_.c_str(), rtpPort_, rtpPayload_, rtpRate_);
+	rccAgent_.sendMessageAnm(RccRtpData(rtpAudio_.ip().c_str(), rtpAudio_.port(), rtpAudio_.payload(), rtpAudio_.rate()));
 }
 
 void CSipClientRccDummyDlg::OnBnClickedClosecall()
 {
 	// TODO: 在此添加控件通知处理程序代码
-	rccAgent_.sendMessageClose();
+	rccAgent_.sendMessageRel();
 	audioWrite_.stop();
 }
 
@@ -460,13 +404,16 @@ void CSipClientRccDummyDlg::OnBnClickedClosecall()
 void CSipClientRccDummyDlg::OnCancel()
 {
 	// TODO: 在此添加专用代码和/或调用基类
+	rtpAudio_.stop();
+
 	OnBnClickedClosecall();
-	rccAgent_.sendMessage(RccMessage::CALL_UNREGISTER);
+	USES_CONVERSION;
+	rccAgent_.sendMessageUrgst(W2A(localNum_));
+
 	Sleep(500);
 	rccAgent_.stopAgent();
 	this->shutdown();
 	this->join();
-	rtpSession_.Destroy();
 	__super::OnCancel();
 }
 
@@ -482,8 +429,7 @@ void CSipClientRccDummyDlg::outputPcm(char * data, int len)
 		for (int i = 0; i < len / 2; ++i)
 			pch[i] = s16_to_alaw(s16[i]);
 		
-		resip::Lock lock(rtpMutex_);
-		rtpSession_.SendPacket(pch, len/2);
+		rtpAudio_.sendData((char*)pch, len/2);
 	}
 	else if (audioTest_)
 		audioWrite_.inputPcm(data, len);
@@ -497,11 +443,11 @@ void CSipClientRccDummyDlg::OnBnClickedAudioTest()
 	UpdateData();
 	if (audioTest_)
 	{
-		audioWrite_.start(rtpRate_, PTIME);
+		audioWrite_.start(rtpAudio_.r_rate(), PTIME);
 		if (audioSrc_ == 0)
-			audioRead_.start(rtpRate_, PTIME);
+			audioRead_.start(rtpAudio_.r_rate(), PTIME);
 		else if (audioSrc_ == 1)
-			audioFile_.start(rtpRate_, PTIME);
+			audioFile_.start(rtpAudio_.r_rate(), PTIME);
 	}
 	else
 	{
@@ -522,30 +468,11 @@ void CSipClientRccDummyDlg::OnCbnSelchangeAudioSrc()
 	audioRead_.stop();
 	audioFile_.stop();
 	if (audioSrc_ == 0)
-		audioRead_.start(rtpRate_, PTIME);
+		audioRead_.start(rtpAudio_.r_rate(), PTIME);
 	else if (audioSrc_ == 1)
-		audioFile_.start(rtpRate_, PTIME);
+		audioFile_.start(rtpAudio_.r_rate(), PTIME);
 }
 
-
-typedef struct _telephone_event
-{
-#ifdef RTP_BIG_ENDIAN
-	uint32_t evt : 8;
-	uint32_t E : 1;
-	uint32_t R : 1;
-	uint32_t volume : 6;
-	uint32_t duration : 16;
-#else
-	unsigned __int32 evt : 8;
-	unsigned __int32 volume : 6;
-	unsigned __int32 R : 1;
-	unsigned __int32 E : 1;
-	unsigned __int32 duration : 16;
-#endif
-}telephone_event_t;
-
-#define TELEPHONE_EVENT 101
 void CSipClientRccDummyDlg::OnDtmfKey(UINT key_id)
 {
 	if (!audioCall_)
@@ -555,18 +482,25 @@ void CSipClientRccDummyDlg::OnDtmfKey(UINT key_id)
 	int vol = 10;
 	int duration = 480 / 3;
 
-	telephone_event_t event_hdr;
-	event_hdr.evt = evt;
-	event_hdr.R = 0;
-	event_hdr.E = 0;
-	event_hdr.volume = vol;
-	event_hdr.duration = duration;
-	rtpSession_.SendPacket((void *)(&event_hdr), sizeof(event_hdr), (unsigned char)TELEPHONE_EVENT, true, (unsigned long)0);
+	rtpAudio_.sendDtmfKey(evt, vol, duration);
+}
 
-	event_hdr.duration += duration;
-	rtpSession_.SendPacket((void *)(&event_hdr), sizeof(event_hdr), (unsigned char)TELEPHONE_EVENT, false, (unsigned long)0);
+void CSipClientRccDummyDlg::onMediaData(char * data, int len, unsigned char payload)
+{
+	if (rtpAudio_.r_payload() == payload)
+	{
+		static const int PCM_BUF_SIZE = 2048;
+		short pcmBuf[PCM_BUF_SIZE];
 
-	event_hdr.duration += duration;
-	event_hdr.E = 1;
-	rtpSession_.SendPacket((void *)(&event_hdr), sizeof(event_hdr), (unsigned char)TELEPHONE_EVENT, false, (unsigned long)480);
+		while (len > 0)
+		{
+			int sz = (len > PCM_BUF_SIZE) ? PCM_BUF_SIZE : len;
+			for (int j = 0; j < sz; j++)
+				pcmBuf[j] = alaw_to_s16(data[j]);
+
+			audioWrite_.inputPcm((char*)pcmBuf, sz * 2);
+			len -= sz;
+			data += sz;
+		}
+	}
 }

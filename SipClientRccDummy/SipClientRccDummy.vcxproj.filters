@@ -60,6 +60,9 @@
     <ClInclude Include="AudioFile.h">
       <Filter>头文件</Filter>
     </ClInclude>
+    <ClInclude Include="RTPMedia.h">
+      <Filter>头文件</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="SipClientRccDummy.cpp">
@@ -93,6 +96,9 @@
       <Filter>源文件</Filter>
     </ClCompile>
     <ClCompile Include="cfgfile.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
+    <ClCompile Include="RTPMedia.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
   </ItemGroup>

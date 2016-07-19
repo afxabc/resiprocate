@@ -33,6 +33,7 @@ static unsigned int CallTimeCounterToByeOn = 6;  // BYE the call after the call 
 
 
 #define ADD_CODEC_NAME(x) mCodecNames[SdpContents::Session::Codec::x.payloadType()] = SdpContents::Session::Codec::x.getName();
+
 std::map<int, Data> BasicClientCall::mCodecNames;
 void resip::BasicClientCall::initCodecNames()
 {
@@ -43,6 +44,8 @@ void resip::BasicClientCall::initCodecNames()
 		ADD_CODEC_NAME(ALaw_8000);
 		ADD_CODEC_NAME(G722_8000);
 		ADD_CODEC_NAME(G729_8000);
+		ADD_CODEC_NAME(H263);
+		mCodecNames[96] = Data("H264");
 	}
 }
 
@@ -69,10 +72,6 @@ class CallTimer : public resip::DumCommand
 
 BasicClientCall::BasicClientCall(BasicClientUserAgent& userAgent) : 
 	AppDialogSet(userAgent.getDialogUsageManager()),
-	mRtpIP("0.0.0.0"), 
-	mRtpPort(0),
-	mRtpPayload(0),
-	mRtpRate(8000),
 	mUserAgent(userAgent),
 	mTimerExpiredCounter(0),
 	mPlacedCall(false),
@@ -89,8 +88,6 @@ BasicClientCall::~BasicClientCall()
 
 void BasicClientCall::makeOffer(SdpContents& offer)
 {
-	assert(mRtpPort > 0);
-
 	static Data txt("v=0\r\n"
 		"o=- 0 0 IN IP4 0.0.0.0\r\n"
 		"s=basicClient\r\n"
@@ -101,46 +98,52 @@ void BasicClientCall::makeOffer(SdpContents& offer)
 	static Mime type("application", "sdp");
 	SdpContents offerSdp(hfv, type);
 
-	SdpContents::Session::Medium medium(Symbols::audio, mRtpPort, 1, Symbols::RTP_AVP);
-	std::map<int, Data>::iterator it = mCodecNames.find(mRtpPayload);
-	if (it != mCodecNames.end())
-		medium.addCodec(SdpContents::Session::Codec(it->second, mRtpPayload, mRtpRate));
+	resip::Data rtpIP;
+	for (unsigned int i=0; i<mRtpList.size(); ++i)
+	{
+		if (rtpIP.size() == 0)
+			rtpIP = mRtpList[i].ip.c_str();
 
-	offerSdp.session().addMedium(medium);
+		const char* symbol = Symbols::audio;
+		if (mRtpList[i].payload == 34 || mRtpList[i].payload == 96)			//H263,H264
+			symbol = "video";
+		SdpContents::Session::Medium medium(symbol, mRtpList[i].port, 1, Symbols::RTP_AVP);
+		std::map<int, Data>::iterator it = mCodecNames.find(mRtpList[i].payload);
+		if (it != mCodecNames.end())
+			medium.addCodec(SdpContents::Session::Codec(it->second, mRtpList[i].payload, mRtpList[i].rate));
 
+		offerSdp.session().addMedium(medium);
+	}
 	// Set sessionid and version for this offer
 	UInt64 currentTime = Timer::getTimeMicroSec();
 	offerSdp.session().origin().getSessionId() = currentTime;
 	offerSdp.session().origin().getVersion() = currentTime;
 
-	offerSdp.session().origin().setAddress(mRtpIP);
-	offerSdp.session().connection().setAddress(mRtpIP);
+	offerSdp.session().origin().setAddress(rtpIP);
+	offerSdp.session().connection().setAddress(rtpIP);
 
 	offer = offerSdp;
 }
 
-void BasicClientCall::makeOffer(SdpContents& offer, const char * rtpip, unsigned short rtpport, unsigned char payload, UInt32 rate)
+void BasicClientCall::makeOffer(SdpContents& offer, RccRtpDataList& rtpDataList)
 {
-	mRtpIP = rtpip;
-	mRtpPort = rtpport;
-	mRtpPayload = payload;
-	mRtpRate = rate;
+	mRtpList.swap(rtpDataList);
 
 	makeOffer(offer);
 }
 
 void 
-BasicClientCall::initiateCall(const Uri& target, const char * rtpip, unsigned short rtpport, unsigned char payload, UInt32 rate, SharedPtr<UserProfile> profile)
+BasicClientCall::initiateCall(const Uri& target, RccRtpDataList& rtpDataList, SharedPtr<UserProfile> profile)
 {
 	SdpContents offerSdp;
-	makeOffer(offerSdp, rtpip, rtpport, payload, rate);
+	makeOffer(offerSdp, rtpDataList);
 
 	SharedPtr<SipMessage> invite = mUserAgent.getDialogUsageManager().makeInviteSession(NameAddr(target), profile, &offerSdp, this);
 	mUserAgent.getDialogUsageManager().send(invite);
 	mPlacedCall = true;
 }
 
-void resip::BasicClientCall::acceptCall(const char * rtpip, unsigned short rtpport, unsigned char payload, UInt32 rate)
+void resip::BasicClientCall::acceptCall(RccRtpDataList& rtpDataList)
 {
 	if (!mInviteSessionHandle.isValid())
 		return;
@@ -150,7 +153,7 @@ void resip::BasicClientCall::acceptCall(const char * rtpip, unsigned short rtppo
 		return;
 
 	SdpContents answerSdp;
-	makeOffer(answerSdp, rtpip, rtpport, payload, rate);
+	makeOffer(answerSdp, rtpDataList);
 
 	// Provide Answer here - for test client just echo back same SDP as received for now
 	mInviteSessionHandle->provideAnswer(answerSdp);

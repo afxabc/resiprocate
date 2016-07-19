@@ -34,7 +34,8 @@ class BasicClientUserAgent : public Postable,
                              public InviteSessionHandler,
                              public DumShutdownHandler,
                              public RedirectHandler,
-							 public ThreadIf
+							 public ThreadIf,
+							 public IRccMessageCallback
 {
 public:
    BasicClientUserAgent();
@@ -43,11 +44,10 @@ public:
    bool start(const char* sipHost, const char* passwd, unsigned short rccPort, const char * rccIP = NULL, unsigned short sipPort = 12001);
    void stop();
 
-   void checkForRcc();
    void registerSession(const char* num);
    void unRegisterSession();
-   bool openSession(const char* target, const char * rtpIP, unsigned short rtpPort, unsigned char payload, UInt32 rate);
-   void acceptSession(const char * rtpIP, unsigned short rtpPort, unsigned char payload, UInt32 rate);
+   bool openSession(const char* target, RccRtpDataList& rtpDataList);
+   void acceptSession(RccRtpDataList& rtpDataList);
    void closeSession();
 
    DialogUsageManager& getDialogUsageManager() { return *mDum; }
@@ -137,7 +137,7 @@ protected:
 	virtual void thread() override;
 	Data makeValidUri(const char* uri);
 
-	void getRemoteOffer(const SdpContents& sdp, Data& rtpip, unsigned short& rtpport, unsigned char& payload, UInt32& rate);
+	void getRemoteOffer(const SdpContents& sdp, RccRtpDataList& rtpDataList);
 
 protected:
    void addTransport(TransportType type, int port);
@@ -193,6 +193,16 @@ private:
 	Data mRtpIP;
 	unsigned short mRtpPort;
 	int mPayload;
+
+	// Í¨¹ý IRccMessageCallback ¼Ì³Ð
+	virtual void onMessage(RccMessage::MessageType type) override;
+	virtual void onMessageAcm(RccMessage::MessageType which, unsigned char result) override;
+	virtual void onMessageRgst(const char * callNumber) override;
+	virtual void onMessageUrgst(const char * callNumber) override;
+	virtual void onMessageRel(unsigned char reason) override;
+	virtual void onMessageIam(const char * callNumber, RccRtpDataList& rtpDataList) override;
+	virtual void onMessageAnm(RccRtpDataList& rtpDataList) override;
+	virtual void onInvalidMessage(RccMessage * msg) override;
 };
  
 }

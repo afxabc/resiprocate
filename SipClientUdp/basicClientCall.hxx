@@ -20,16 +20,11 @@ public:
    BasicClientCall(BasicClientUserAgent& userAgent);
    virtual ~BasicClientCall();
    
-   virtual void initiateCall(const Uri& target, const char * rtpip, unsigned short rtpport, unsigned char payload, UInt32 rate, SharedPtr<UserProfile> profile);
-   void acceptCall(const char * rtpip, unsigned short rtpport, unsigned char payload, UInt32 rate);
+   virtual void initiateCall(const Uri& target, RccRtpDataList& rtpDataList, SharedPtr<UserProfile> profile);
+   void acceptCall(RccRtpDataList& rtpDataList);
 
    virtual void terminateCall();
    virtual void timerExpired();
-
-   Data& rtpIP() { return mRtpIP; }
-   unsigned short& rtpPort() { return mRtpPort; }
-   unsigned char& rtpPayload() { return mRtpPayload; }
-   UInt32& rtpRate() { return mRtpRate; }
 
 protected:
    friend class BasicClientUserAgent;
@@ -102,10 +97,7 @@ private:
 	bool mPlacedCall;
 	resip::InviteSessionHandle mInviteSessionHandleReplaced;
 
-	Data mRtpIP;
-	unsigned short mRtpPort;
-	unsigned char mRtpPayload;
-	unsigned int mRtpRate;
+	RccRtpDataList mRtpList;
 
 	static std::map<int, Data> mCodecNames;
 	static void initCodecNames();
@@ -115,7 +107,7 @@ private:
 	bool isStaleFork(const resip::DialogId& dialogId);
 	resip::DialogId mUACConnectedDialogId;
 
-	void makeOffer(SdpContents& offer, const char * rtpip, unsigned short rtpport, unsigned char payload, UInt32 rate);
+	void makeOffer(SdpContents& offer, RccRtpDataList& rtpDataList);
 	void makeOffer(SdpContents& offer);
 };
  

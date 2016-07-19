@@ -97,7 +97,7 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <AdditionalDependencies>jrtplib.lib;rutil.lib;ares.lib;winmm.lib;uafxcwd.lib;LIBCMTD.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>.\Win32\Debug;$(OutDir)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>.\Win32\Debug;$(OutDir);./</AdditionalLibraryDirectories>
       <UACExecutionLevel>AsInvoker</UACExecutionLevel>
       <IgnoreSpecificDefaultLibraries>uafxcwd.lib;LIBCMTD.lib</IgnoreSpecificDefaultLibraries>
     </Link>
@@ -197,6 +197,7 @@
     <ClInclude Include="buffer.h" />
     <ClInclude Include="queue.h" />
     <ClInclude Include="Resource.h" />
+    <ClInclude Include="RTPMedia.h" />
     <ClInclude Include="signal.h" />
     <ClInclude Include="SipClientRccDummy.h" />
     <ClInclude Include="SipClientRccDummyDlg.h" />
@@ -212,6 +213,7 @@
     <ClCompile Include="AudioWrite.cpp" />
     <ClCompile Include="buffer.cpp" />
     <ClCompile Include="cfgfile.cpp" />
+    <ClCompile Include="RTPMedia.cpp" />
     <ClCompile Include="signal.cpp" />
     <ClCompile Include="SipClientRccDummy.cpp" />
     <ClCompile Include="SipClientRccDummyDlg.cpp" />

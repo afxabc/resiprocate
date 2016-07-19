@@ -8,6 +8,7 @@
 #include "AudioRead.h"
 #include "AudioFile.h"
 #include "AudioWrite.h"
+#include "RTPMedia.h"
 
 #include "jrtplib\rtpsession.h"
 #include "jrtplib\rtppacket.h"
@@ -17,7 +18,7 @@
 #include "afxwin.h"
 
 // CSipClientRccDummyDlg 对话框
-class CSipClientRccDummyDlg : public CDialogEx, resip::ThreadIf, IAudioReadCallback
+class CSipClientRccDummyDlg : public CDialogEx, resip::ThreadIf, IAudioReadCallback, IRccMessageCallback, IRTPMediaCallback
 {
 // 构造
 public:
@@ -57,10 +58,21 @@ protected:
 	virtual void OnCancel();
 
 	bool checkForRcc();
-	void printRccAck(bool ok, RccMessage::MessageType, CStringA& str);
+	void showString(LPCSTR pszFormat, ...);
 
 	// 通过 IAudioReadCallback 继承
 	virtual void outputPcm(char * data, int len) override;
+
+	// 通过 IRccMessageCallback 继承
+	virtual void onMessage(RccMessage::MessageType type) override;
+	virtual void onMessageAcm(RccMessage::MessageType which, unsigned char result) override;
+	virtual void onMessageRgst(const char * callNumber) override;
+	virtual void onMessageUrgst(const char * callNumber) override;
+	virtual void onMessageRel(unsigned char reason) override;
+	virtual void onMessageIam(const char * callNumber, RccRtpDataList & rtpDataList) override;
+	virtual void onMessageAnm(RccRtpDataList & rtpDataList) override;
+	virtual void onInvalidMessage(RccMessage * msg) override;
+	void onMessageConn();
 
 protected:
 	HICON m_hIcon;
@@ -74,19 +86,7 @@ protected:
 	typedef Queue<resip::Data> QUEUE;
 	QUEUE queue_;
 
-	resip::Mutex rtpMutex_;
-	RTPSession rtpSession_;
-
-	static const int IP_ADDR_SIZE = 18;
-	std::string rtpIP_;
-	unsigned short rtpPort_;
-	unsigned char rtpPayload_;
-	unsigned int rtpRate_;
-
-	std::string remoteRtpIP_;
-	unsigned short remoteRtpPort_;
-	unsigned char remoteRtpPayload_;
-	unsigned int remoteRtpRate_;
+	RTPMedia rtpAudio_;
 
 	AudioWrite audioWrite_;
 	AudioRead audioRead_;
@@ -95,4 +95,9 @@ protected:
 	BOOL audioCall_;
 	int audioSrc_;
 	CString numIcome_;
+
+
+	// 通过 IRTPMediaCallback 继承
+	virtual void onMediaData(char * data, int len, unsigned char payload) override;
+
 };
