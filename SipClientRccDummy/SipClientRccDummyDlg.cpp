@@ -92,21 +92,29 @@ const Codec Codec::G722_8000("G722", 9, 8000);
 static const int PTIME = 20;
 static const unsigned char PAYLOAD_AUDIO = 8;
 static const unsigned int RATE_AUDIO = 8000;
+static const unsigned int RATE_VIDEO = 90000;
+static const unsigned int VIDEO_WIDTH = 320;
+static const unsigned int VIDEO_HEIGHT = 240;
+static const unsigned int VIDEO_FPS = 15;
+
 CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_SIPCLIENTRCCDUMMY_DIALOG, pParent)
 	, localNum_(_T("1000"))
-	, remoteNum_(_T("5000"))
+//	, remoteNum_(_T("5000"))
 //	, remoteNum_(_T("9664"))		//音乐
-//	, remoteNum_(_T("9196"))		//echo
+	, remoteNum_(_T("9196"))		//echo
 	, rccIP_("127.0.0.1")
 	, rccPort_(RCC_SERVER_PORT_BASE)
 	, rtpAudio_(this, "127.0.0.1", RCC_RTP_PORT_BASE, PAYLOAD_AUDIO, RATE_AUDIO)
+	, rtpVideo_(this, "127.0.0.1", RCC_RTP_PORT_BASE+2, RTP_PAYLOAD_H264, RATE_VIDEO)
+	, videoCap_(this)
 	, audioRead_(this)
 	, audioFile_(this)
 	, audioTest_(FALSE)
 	, audioCall_(FALSE)
 	, audioSrc_(0)
 	, numIcome_(_T(""))
+	, videoEnable_(TRUE)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -120,6 +128,8 @@ void CSipClientRccDummyDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Check(pDX, IDC_AUDIO_TEST, audioTest_);
 	DDX_CBIndex(pDX, IDC_AUDIO_SRC, audioSrc_);
 	DDX_Text(pDX, IDC_INCOME_NUM, numIcome_);
+	DDX_Check(pDX, IDC_VIDEO_ENABLE, videoEnable_);
+	DDX_Control(pDX, IDC_DRAW_BK, drawWnd_);
 }
 
 BEGIN_MESSAGE_MAP(CSipClientRccDummyDlg, CDialogEx)
@@ -153,12 +163,14 @@ BOOL CSipClientRccDummyDlg::OnInitDialog()
 	if (LoadParamString(finame, "RTP", "ADDR", tmpBuf) >= 2)
 	{
 		rtpAudio_.ip() = tmpBuf;
+		rtpVideo_.ip() = tmpBuf;
 	}
 
 	if (LoadParamString(finame, "RTP", "PORT", tmpBuf) >= 2)
 	{
 		unsigned short rtpPortBase = atoi(tmpBuf);
 		rtpPortBase = rtpAudio_.tryPort(rtpPortBase);
+		rtpPortBase = rtpVideo_.tryPort(rtpPortBase);
 	}
 
 	if (LoadParamString(finame, "RCC", "ADDR", tmpBuf) >= 2)
@@ -307,6 +319,10 @@ void CSipClientRccDummyDlg::onMessageRel(unsigned char reason)
 	audioRead_.stop();
 	audioFile_.stop();
 
+	rtpVideo_.stop();
+	videoCap_.stop();
+	videoDraw_.stop();
+
 	showString("结束通话。 (%d)", (int)reason);
 	audioCall_ = FALSE;
 }
@@ -321,9 +337,16 @@ void CSipClientRccDummyDlg::onMessageIam(const char * callNumber, RccRtpDataList
 	showString("来电号码：%s", callNumber);
 	for (unsigned int i = 0; i < rtpDataList.size(); ++i)
 	{
-		if (PAYLOAD_AUDIO == rtpDataList[i].payload)
+		if (rtpAudio_.payload() == rtpDataList[i].payload)
 		{
 			rtpAudio_.setRemote(rtpDataList[i].ip, rtpDataList[i].port, rtpDataList[i].payload, rtpDataList[i].rate);
+
+			showString("  [%d] RTP(%s:%d)", i, rtpDataList[i].ip.c_str(), rtpDataList[i].port);
+			showString("  [%d] codec(%d, %d)", i, rtpDataList[i].payload, rtpDataList[i].rate);
+		}
+		else if (rtpVideo_.payload() == rtpDataList[i].payload)
+		{
+			rtpVideo_.setRemote(rtpDataList[i].ip, rtpDataList[i].port, rtpDataList[i].payload, rtpDataList[i].rate);
 
 			showString("  [%d] RTP(%s:%d)", i, rtpDataList[i].ip.c_str(), rtpDataList[i].port);
 			showString("  [%d] codec(%d, %d)", i, rtpDataList[i].payload, rtpDataList[i].rate);
@@ -336,10 +359,16 @@ void CSipClientRccDummyDlg::onMessageAnm(RccRtpDataList & rtpDataList)
 	showString("收到应答：");
 	for (unsigned int i = 0; i < rtpDataList.size(); ++i)
 	{
-		if (PAYLOAD_AUDIO == rtpDataList[i].payload)
+		if (rtpAudio_.payload() == rtpDataList[i].payload)
 		{
 			rtpAudio_.setRemote(rtpDataList[i].ip, rtpDataList[i].port, rtpDataList[i].payload, rtpDataList[i].rate);
 
+			showString("  [%d] RTP(%s:%d)", i, rtpDataList[i].ip.c_str(), rtpDataList[i].port);
+			showString("  [%d] codec(%d, %d)", i, rtpDataList[i].payload, rtpDataList[i].rate);
+		}
+		else if (rtpVideo_.payload() == rtpDataList[i].payload)
+		{
+			rtpVideo_.setRemote(rtpDataList[i].ip, rtpDataList[i].port, rtpDataList[i].payload, rtpDataList[i].rate);
 			showString("  [%d] RTP(%s:%d)", i, rtpDataList[i].ip.c_str(), rtpDataList[i].port);
 			showString("  [%d] codec(%d, %d)", i, rtpDataList[i].payload, rtpDataList[i].rate);
 		}
@@ -354,6 +383,9 @@ void CSipClientRccDummyDlg::onMessageConn()
 {
 	this->GetDlgItem(IDC_ACCEPT)->EnableWindow(FALSE);
 
+	audioCall_ = TRUE;
+	showString("通话中......");
+
 	rtpAudio_.start(PTIME);
 	audioWrite_.start(rtpAudio_.rate(), PTIME);
 	if (audioSrc_ == 0)
@@ -361,8 +393,11 @@ void CSipClientRccDummyDlg::onMessageConn()
 	else if (audioSrc_ == 1)
 		audioFile_.start(rtpAudio_.rate(), PTIME);
 
-	audioCall_ = TRUE;
-	showString("通话中......");
+	if (!videoEnable_)
+		return;
+	rtpVideo_.start(1000/VIDEO_FPS);
+	videoCap_.start(VIDEO_WIDTH, VIDEO_HEIGHT, rtpVideo_.rate(), VIDEO_FPS);
+	videoDraw_.start(&drawWnd_, rtpVideo_.r_rate());
 }
 
 /////////////////////////////////////////////////////////////
@@ -380,8 +415,13 @@ void CSipClientRccDummyDlg::OnBnClickedInvite()
 	// TODO: 在此添加控件通知处理程序代码
 	UpdateData();
 
+	RccRtpDataList rccRtpDataList;
+	rccRtpDataList.push_back(RccRtpData(rtpAudio_.ip().c_str(), rtpAudio_.port(), rtpAudio_.payload(), rtpAudio_.rate()));
+	if (videoEnable_)
+		rccRtpDataList.push_back(RccRtpData(rtpVideo_.ip().c_str(), rtpVideo_.port(), rtpVideo_.payload(), rtpVideo_.rate()));
+	
 	USES_CONVERSION;
-	rccAgent_.sendMessageIam(W2A(remoteNum_), RccRtpData(rtpAudio_.ip().c_str(), rtpAudio_.port(), rtpAudio_.payload(), rtpAudio_.rate()));
+	rccAgent_.sendMessageIam(W2A(remoteNum_), rccRtpDataList);
 }
 
 void CSipClientRccDummyDlg::OnBnClickedAccept()
@@ -389,8 +429,13 @@ void CSipClientRccDummyDlg::OnBnClickedAccept()
 	// TODO: 在此添加控件通知处理程序代码
 	UpdateData();
 
+	RccRtpDataList rccRtpDataList;
+	rccRtpDataList.push_back(RccRtpData(rtpAudio_.ip().c_str(), rtpAudio_.port(), rtpAudio_.payload(), rtpAudio_.rate()));
+	if (videoEnable_ && rtpVideo_.r_port() != 0)
+		rccRtpDataList.push_back(RccRtpData(rtpVideo_.ip().c_str(), rtpVideo_.port(), rtpVideo_.payload(), rtpVideo_.rate()));
+	
 	USES_CONVERSION;
-	rccAgent_.sendMessageAnm(RccRtpData(rtpAudio_.ip().c_str(), rtpAudio_.port(), rtpAudio_.payload(), rtpAudio_.rate()));
+	rccAgent_.sendMessageAnm(rccRtpDataList);
 }
 
 void CSipClientRccDummyDlg::OnBnClickedClosecall()
@@ -398,6 +443,8 @@ void CSipClientRccDummyDlg::OnBnClickedClosecall()
 	// TODO: 在此添加控件通知处理程序代码
 	rccAgent_.sendMessageRel();
 	audioWrite_.stop();
+	videoCap_.stop();
+	videoDraw_.stop();
 }
 
 
@@ -405,6 +452,7 @@ void CSipClientRccDummyDlg::OnCancel()
 {
 	// TODO: 在此添加专用代码和/或调用基类
 	rtpAudio_.stop();
+	rtpVideo_.stop();
 
 	OnBnClickedClosecall();
 	USES_CONVERSION;
@@ -503,4 +551,20 @@ void CSipClientRccDummyDlg::onMediaData(char * data, int len, unsigned char payl
 			data += sz;
 		}
 	}
+	else if (rtpVideo_.r_payload() == payload)
+	{
+//		TRACE("======================= len=%d\n", len);
+		videoDraw_.decodeAndDraw(data, len);
+	}
+	else
+	{
+		TRACE("????????????????????? %d\n", payload);
+	}
+}
+
+void CSipClientRccDummyDlg::onVideoEncodeFin(char * data, int len, unsigned char pt, bool mark, unsigned long tm)
+{
+//	TRACE("+++++++++++++++++++++++ len=%d\n", len);
+	rtpVideo_.sendData(data, len, pt, mark, tm);
+//	videoDec_.decode(data, len, this);
 }

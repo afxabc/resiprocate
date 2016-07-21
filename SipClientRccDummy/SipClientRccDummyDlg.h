@@ -9,6 +9,8 @@
 #include "AudioFile.h"
 #include "AudioWrite.h"
 #include "RTPMedia.h"
+#include "VideoCapDesktop.h"
+#include "VideoDraw.h"
 
 #include "jrtplib\rtpsession.h"
 #include "jrtplib\rtppacket.h"
@@ -18,7 +20,12 @@
 #include "afxwin.h"
 
 // CSipClientRccDummyDlg 对话框
-class CSipClientRccDummyDlg : public CDialogEx, resip::ThreadIf, IAudioReadCallback, IRccMessageCallback, IRTPMediaCallback
+class CSipClientRccDummyDlg : public CDialogEx, 
+								resip::ThreadIf, 
+								IAudioReadCallback, 
+								IRccMessageCallback,
+								IRTPMediaCallback,
+								IVideoEncodecCallback
 {
 // 构造
 public:
@@ -87,6 +94,10 @@ protected:
 	QUEUE queue_;
 
 	RTPMedia rtpAudio_;
+	RTPMedia rtpVideo_;
+
+	VideoCapDesktop videoCap_; 
+	VideoDraw	videoDraw_;
 
 	AudioWrite audioWrite_;
 	AudioRead audioRead_;
@@ -95,9 +106,14 @@ protected:
 	BOOL audioCall_;
 	int audioSrc_;
 	CString numIcome_;
+	BOOL videoEnable_;
 
+	CStatic drawWnd_; 
 
 	// 通过 IRTPMediaCallback 继承
 	virtual void onMediaData(char * data, int len, unsigned char payload) override;
+
+	// 通过 IVideoEncodecCallback 继承
+	virtual void onVideoEncodeFin(char * data, int len, unsigned char pt, bool mark, unsigned long tm) override;
 
 };

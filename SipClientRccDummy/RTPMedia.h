@@ -24,6 +24,7 @@ public:
 	unsigned short tryPort(unsigned short port);
 	void stop();
 	int sendData(char* data, int len);
+	int sendData(char *data, int len, unsigned char pt, bool mark, unsigned long timestampinc);
 	int sendDtmfKey(int evt, int vol, int duration);
 
 	std::string& ip() { return rtpIP_; }

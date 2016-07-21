@@ -16,7 +16,6 @@ public:
 	virtual void outputPcm(char* data, int len) = 0;
 };
 
-class RTPSession;
 //ÉùÒôÊäÈë£ºÂó¿Ë·ç
 class AudioRead : public resip::ThreadIf
 {

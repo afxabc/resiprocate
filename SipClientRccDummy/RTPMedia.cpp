@@ -67,8 +67,38 @@ void RTPMedia::stop()
 
 int RTPMedia::sendData(char * data, int len)
 {
+	static const int SPAN = 1280;
+	int ret = 0;
+
 	resip::Lock lock(mutex_);
-	return rtpSession_.SendPacket(data, len);
+	while (len > 0)
+	{
+		int sz = (len > SPAN) ? SPAN : len;
+		ret = rtpSession_.SendPacket(data, sz);
+		if (ret < 0)
+			break;
+		len -= sz;
+		data += sz;
+	}
+	return ret;
+}
+
+int RTPMedia::sendData(char * data, int len, unsigned char pt, bool mark, unsigned long timestampinc)
+{
+	static const int SPAN = 1280;
+	int ret = 0;
+
+	resip::Lock lock(mutex_);
+	while (len > 0)
+	{
+		int sz = (len > SPAN) ? SPAN : len;
+		ret = rtpSession_.SendPacket(data, sz, pt, mark, (sz == len) ? timestampinc : 0);
+		if (ret < 0)
+			break;
+		len -= sz;
+		data += sz;
+	}
+	return ret;
 }
 
 unsigned short RTPMedia::tryPort(unsigned short port)
@@ -79,7 +109,7 @@ unsigned short RTPMedia::tryPort(unsigned short port)
 		rtpPort_ += 2;
 	rtpSession_.Destroy();
 
-	return rtpPort_;
+	return rtpPort_+2;
 }
 
 void RTPMedia::thread()

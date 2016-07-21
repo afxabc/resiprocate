@@ -182,7 +182,7 @@ void AudioWrite::thread()
 			if (doffset >= bufferNotifySize_)
 				continue;
 
-			TRACE("offset=%d, offsetPlay=%d : æ≤“Ù!!!!\n", offset, offsetPlay);
+//			TRACE("offset=%d, offsetPlay=%d : æ≤“Ù!!!!\n", offset, offsetPlay);
 			tmp.erase();
 			tmp.pushBack((unsigned char)0, bufferNotifySize_, true);		//æ≤“Ù
 		}
@@ -192,7 +192,7 @@ void AudioWrite::thread()
 			DWORD doffset = (offsetPlay - offset + totalSize) % totalSize;
 			if (doffset <= bufferNotifySize_)
 			{
-				TRACE("offset=%d, offsetPlay=%d : µ»¥˝!!!!\n", offset, offsetPlay);
+//				TRACE("offset=%d, offsetPlay=%d : µ»¥˝!!!!\n", offset, offsetPlay);
 				::ResetEvent(ev);
 				obj = WaitForSingleObject(ev, INFINITE);
 				if ((obj < WAIT_OBJECT_0) || (obj >= WAIT_OBJECT_0 + MAX_AUDIO_BUF))
