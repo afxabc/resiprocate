@@ -29,7 +29,7 @@ bool VideoDecode::open(int rate, AVCodecID codec)
 
 	pContext_ = avcodec_alloc_context3(avc);
 
-	pContext_->bit_rate = rate; 
+	pContext_->bit_rate = rate*8; 
 	pContext_->gop_size = 10;
 	pContext_->max_b_frames = 1;
 	pContext_->pix_fmt = AV_PIX_FMT_YUV420P;

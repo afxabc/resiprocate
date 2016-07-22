@@ -1,6 +1,7 @@
 
 #include "RTPMedia.h"
 #include "rutil\Lock.hxx"
+#include "buffer.h"
 
 RTPMedia::RTPMedia(IRTPMediaCallback* cb, const char* ip, unsigned short port, unsigned char payload, unsigned int rate)
 	: cb_(cb)
@@ -11,6 +12,7 @@ RTPMedia::RTPMedia(IRTPMediaCallback* cb, const char* ip, unsigned short port, u
 	, remoteRtpPort_(0)
 	, remoteRtpPayload_(payload)
 	, remoteRtpRate_(rate)
+	, hdrextID_(1)
 {
 	mShutdown = true;
 }
@@ -45,6 +47,7 @@ bool RTPMedia::start(unsigned int ptime)
 	rtpSession_.SetTimestampUnit(1.0 / remoteRtpRate_);
 	rtpSession_.SetDefaultTimeStampIncrement(ptime*remoteRtpRate_ / 1000);
 	rtpSession_.SetDefaultMark(false);
+//	rtpSession_.SetMaxPacketSize(64000);
 
 	this->run();
 
@@ -67,13 +70,14 @@ void RTPMedia::stop()
 
 int RTPMedia::sendData(char * data, int len)
 {
-	static const int SPAN = 1280;
-	int ret = 0;
-
 	resip::Lock lock(mutex_);
+	int ret = rtpSession_.SendPacket(data, len);
+	if (ret >= 0 || ret != ERR_RTP_PACKETTOOLARGE)
+		return ret;
+
 	while (len > 0)
 	{
-		int sz = (len > SPAN) ? SPAN : len;
+		int sz = (len > MAX_PACKET_SIZE) ? MAX_PACKET_SIZE : len;
 		ret = rtpSession_.SendPacket(data, sz);
 		if (ret < 0)
 			break;
@@ -85,19 +89,27 @@ int RTPMedia::sendData(char * data, int len)
 
 int RTPMedia::sendData(char * data, int len, unsigned char pt, bool mark, unsigned long timestampinc)
 {
-	static const int SPAN = 1280;
-	int ret = 0;
-
 	resip::Lock lock(mutex_);
+
+	int ret = rtpSession_.SendPacket(data, len, pt, mark, timestampinc);
+	if (ret >= 0 || ret != ERR_RTP_PACKETTOOLARGE)
+		return ret;
+
+	mark = true;
+	char* tdata = data;
+	int tlen = len;
 	while (len > 0)
 	{
-		int sz = (len > SPAN) ? SPAN : len;
-		ret = rtpSession_.SendPacket(data, sz, pt, mark, (sz == len) ? timestampinc : 0);
+		int sz = (len > MAX_PACKET_SIZE) ? MAX_PACKET_SIZE : len;
+		ret = rtpSession_.SendPacket(tdata, sz, pt, mark, timestampinc, hdrextID_, data, sz);
 		if (ret < 0)
 			break;
 		len -= sz;
 		data += sz;
+		mark = false;
+		timestampinc = 0;
 	}
+	hdrextID_++;
 	return ret;
 }
 
@@ -121,6 +133,8 @@ void RTPMedia::thread()
 	rtpSession_.GetRTCPSocket(&sock2);
 
 	mShutdown = false;
+	Buffer buff;
+	unsigned short id = 0;
 	while (!isShutdown())
 	{
 		tv.tv_sec = 0;
@@ -148,13 +162,37 @@ void RTPMedia::thread()
 				RTPPacket *pack;
 				while ((pack = rtpSession_.GetNextPacket()) != NULL)
 				{
+					if (payload() != rtpPayload_ || cb_ == NULL)
+					{
+						delete pack;
+						continue;
+					}
+
 					// You can examine the data here
 					char* data = (char*)pack->GetPayload();
 					int len = pack->GetPayloadLength();
 					unsigned char payload = pack->GetPayloadType();
+					
+					if (pack->HasHeaderExtension())
+					{
+						if (id != pack->GetHeaderExtensionID())
+						{
+							id = pack->GetHeaderExtensionID();
+							if (buff.readableBytes() > 0)
+							{
+								cb_->onMediaData(buff.beginRead(), buff.readableBytes(), payload);
+								buff.erase();
+							}
+						}
+						buff.pushBack((char*)pack->GetHeaderExtensionData(), pack->GetHeaderExtensionLength(), true);
+					}
+					else if (buff.readableBytes() > 0)
+					{
+						cb_->onMediaData(buff.beginRead(), buff.readableBytes(), payload);
+						buff.erase();
+					}
 
-					if (payload == rtpPayload_ && cb_)
-						cb_->onMediaData(data, len, payload);
+					cb_->onMediaData(data, len, payload);
 					
 					delete pack;
 				}

@@ -108,7 +108,9 @@ protected:
 	CString numIcome_;
 	BOOL videoEnable_;
 
-	CStatic drawWnd_; 
+	CStatic drawWnd_;
+	int winMin_;
+	int winMax_;
 
 	// 通过 IRTPMediaCallback 继承
 	virtual void onMediaData(char * data, int len, unsigned char payload) override;
@@ -116,4 +118,6 @@ protected:
 	// 通过 IVideoEncodecCallback 继承
 	virtual void onVideoEncodeFin(char * data, int len, unsigned char pt, bool mark, unsigned long tm) override;
 
+public:
+	afx_msg void OnBnClickedVideoEnable();
 };

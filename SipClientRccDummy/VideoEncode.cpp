@@ -37,23 +37,21 @@ bool VideoEncode::open(int width, int height, int rate, int fps, AVCodecID codec
 
 	pContext_ = avcodec_alloc_context3(pCodec_);
 
+	av_opt_set(pContext_->priv_data, "preset", "superfast", 0); 
+	av_opt_set(pContext_->priv_data, "tune", "zerolatency", 0);
+
+	pContext_->codec_type = AVMEDIA_TYPE_VIDEO;
+	pContext_->pix_fmt = AV_PIX_FMT_USE;
+	pContext_->flags |= CODEC_FLAG_TRUNCATED;
 	pContext_->width = width;
 	pContext_->height = height;
 	pContext_->time_base.num = 1;
 	pContext_->time_base.den = fps;
-	pContext_->gop_size = pContext_->time_base.den * 3; // emit one intra frame every 10 second 
-	pContext_->bit_rate = rate; // put sample parameters 
-	pContext_->bit_rate_tolerance = (float)pContext_->bit_rate / (pContext_->time_base.den - 1); // put sample parameters 
-	pContext_->pix_fmt = AV_PIX_FMT_USE;
-	pContext_->max_b_frames = 0;
-	pContext_->codec_type = AVMEDIA_TYPE_VIDEO;
-	pContext_->qmin = 10;
-	pContext_->qmax = 50;
-	pContext_->pre_me = 2;
-	pContext_->lmin = 1;
-	pContext_->lmax = 5;
-	pContext_->flags |= CODEC_FLAG_TRUNCATED;
-
+	pContext_->max_b_frames = 1;
+	pContext_->gop_size = pContext_->time_base.den * 3;  
+	pContext_->bit_rate = rate*8; 
+	pContext_->bit_rate_tolerance = (float)pContext_->bit_rate / (pContext_->time_base.den - 1); 
+	
 	nTimestamp_ = 0;
 	pFrameRGB_ = av_frame_alloc();
 	pFrameYUV_ = av_frame_alloc();

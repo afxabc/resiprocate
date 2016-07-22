@@ -37,11 +37,14 @@ public:
 	unsigned char& r_payload() { return remoteRtpPayload_; }
 	unsigned int& r_rate() { return remoteRtpRate_; }
 
+	static const int MAX_PACKET_SIZE = 1280;
+
 private:
 	IRTPMediaCallback* cb_;
 
 	resip::Mutex mutex_;
 	RTPSession rtpSession_;
+	unsigned short hdrextID_;
 
 	std::string rtpIP_;
 	unsigned short rtpPort_;

@@ -5,6 +5,7 @@ extern "C"
 #include "stdint.h"
 #include "libavcodec/avcodec.h"
 #include "libswscale/swscale.h"
+#include "libavutil/opt.h"
 };
 
 class IVideoEncodecCallback

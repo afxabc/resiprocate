@@ -31,7 +31,13 @@ void VideoDraw::stop()
 		::DrawDibClose(drawDib_);
 		drawDib_ = NULL;
 	}
-	drawWnd_ = NULL;
+
+	if (drawWnd_ != NULL)
+	{
+//		drawWnd_->Invalidate();
+		drawWnd_ = NULL;
+	}
+		
 }
 
 bool VideoDraw::decodeAndDraw(const char * data, int len)

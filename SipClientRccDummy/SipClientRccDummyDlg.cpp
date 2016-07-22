@@ -93,9 +93,9 @@ static const int PTIME = 20;
 static const unsigned char PAYLOAD_AUDIO = 8;
 static const unsigned int RATE_AUDIO = 8000;
 static const unsigned int RATE_VIDEO = 90000;
-static const unsigned int VIDEO_WIDTH = 320;
-static const unsigned int VIDEO_HEIGHT = 240;
-static const unsigned int VIDEO_FPS = 15;
+static const unsigned int VIDEO_WIDTH = 480;
+static const unsigned int VIDEO_HEIGHT = 360;
+static const unsigned int VIDEO_FPS = 10;
 
 CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_SIPCLIENTRCCDUMMY_DIALOG, pParent)
@@ -143,6 +143,7 @@ BEGIN_MESSAGE_MAP(CSipClientRccDummyDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_AUDIO_TEST, &CSipClientRccDummyDlg::OnBnClickedAudioTest)
 	ON_CBN_SELCHANGE(IDC_AUDIO_SRC, &CSipClientRccDummyDlg::OnCbnSelchangeAudioSrc)
 	ON_COMMAND_RANGE(IDC_DTMF_0, IDC_DTMF_SHARP, &CSipClientRccDummyDlg::OnDtmfKey)
+	ON_BN_CLICKED(IDC_VIDEO_ENABLE, &CSipClientRccDummyDlg::OnBnClickedVideoEnable)
 END_MESSAGE_MAP()
 
 
@@ -181,7 +182,12 @@ BOOL CSipClientRccDummyDlg::OnInitDialog()
 	rccAgent_.startAgent(RCC_CLIENT_PORT_BASE, NULL, rccPort_, rccIP_.c_str());
 	this->run();
 
-//	audioRead_.enumDevices();
+	RECT r;
+	drawWnd_.GetWindowRect(&r);
+	RECT R;
+	this->GetWindowRect(&R);
+	winMin_ = r.left - R.left;
+	winMax_ = R.right - R.left;
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -321,7 +327,8 @@ void CSipClientRccDummyDlg::onMessageRel(unsigned char reason)
 
 	rtpVideo_.stop();
 	videoCap_.stop();
-	videoDraw_.stop();
+	videoDraw_.stop(); 
+	drawWnd_.Invalidate();
 
 	showString("结束通话。 (%d)", (int)reason);
 	audioCall_ = FALSE;
@@ -445,6 +452,7 @@ void CSipClientRccDummyDlg::OnBnClickedClosecall()
 	audioWrite_.stop();
 	videoCap_.stop();
 	videoDraw_.stop();
+	drawWnd_.Invalidate();
 }
 
 
@@ -496,6 +504,12 @@ void CSipClientRccDummyDlg::OnBnClickedAudioTest()
 			audioRead_.start(rtpAudio_.r_rate(), PTIME);
 		else if (audioSrc_ == 1)
 			audioFile_.start(rtpAudio_.r_rate(), PTIME);
+
+		if (videoEnable_)
+		{
+			videoCap_.start(VIDEO_WIDTH, VIDEO_HEIGHT, rtpVideo_.rate(), VIDEO_FPS);
+			videoDraw_.start(&drawWnd_, rtpVideo_.r_rate());
+		}
 	}
 	else
 	{
@@ -503,6 +517,10 @@ void CSipClientRccDummyDlg::OnBnClickedAudioTest()
 		audioWrite_.stop();
 		audioRead_.stop();
 		audioFile_.stop();
+
+		videoCap_.stop();
+		videoDraw_.stop();
+		drawWnd_.Invalidate();
 	}
 }
 
@@ -565,6 +583,25 @@ void CSipClientRccDummyDlg::onMediaData(char * data, int len, unsigned char payl
 void CSipClientRccDummyDlg::onVideoEncodeFin(char * data, int len, unsigned char pt, bool mark, unsigned long tm)
 {
 //	TRACE("+++++++++++++++++++++++ len=%d\n", len);
-	rtpVideo_.sendData(data, len, pt, mark, tm);
+	if (audioCall_)
+	{
+		rtpVideo_.sendData(data, len, pt, mark, tm);
+	}
+	else if (audioTest_)
+		videoDraw_.decodeAndDraw(data, len);
 //	videoDec_.decode(data, len, this);
+}
+
+
+void CSipClientRccDummyDlg::OnBnClickedVideoEnable()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	UpdateData();
+
+	RECT r;
+	this->GetWindowRect(&r);
+	if (videoEnable_)
+		r.right = r.left + winMax_;
+	else r.right = r.left + winMin_;
+	this->MoveWindow(&r);
 }
