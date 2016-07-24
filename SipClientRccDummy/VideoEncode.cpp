@@ -50,7 +50,7 @@ bool VideoEncode::open(int width, int height, int rate, int fps, AVCodecID codec
 	pContext_->max_b_frames = 1;
 	pContext_->gop_size = pContext_->time_base.den * 3;  
 	pContext_->bit_rate = rate*8; 
-	pContext_->bit_rate_tolerance = (float)pContext_->bit_rate / (pContext_->time_base.den - 1); 
+	pContext_->bit_rate_tolerance = (float)pContext_->bit_rate / (50); 
 	
 	nTimestamp_ = 0;
 	pFrameRGB_ = av_frame_alloc();

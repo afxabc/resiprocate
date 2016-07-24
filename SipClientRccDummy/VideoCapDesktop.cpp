@@ -66,6 +66,9 @@ void VideoCapDesktop::thread()
 	HBITMAP hbmp = ::CreateCompatibleBitmap(hdc, width_, height_);
 	::SelectObject(hdc2, hbmp);
 
+	int WIDTH = GetSystemMetrics(SM_CXSCREEN);
+	int HEIGHT = GetSystemMetrics(SM_CYSCREEN);
+
 	mShutdown = false;
 	while (!isShutdown())
 	{
@@ -73,7 +76,9 @@ void VideoCapDesktop::thread()
 
 		POINT pt;
 		::GetCursorPos(&pt);
-		::BitBlt(hdc2, 0, 0, width_, height_, hdc, pt.x-width_/2, pt.y-height_/2, SRCCOPY);
+		int dx = pt.x*width_ / WIDTH;
+		int dy = pt.y*height_ / HEIGHT;
+		::BitBlt(hdc2, 0, 0, width_, height_, hdc, pt.x-dx, pt.y-dy, SRCCOPY);
 		int len = ::GetDIBits(hdc2, hbmp, 0, height_, data, (LPBITMAPINFO)(&imgInfo), DIB_RGB_COLORS);
 		if (len > 0)
 		{

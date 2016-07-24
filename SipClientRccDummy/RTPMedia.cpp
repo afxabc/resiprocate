@@ -133,10 +133,10 @@ void RTPMedia::thread()
 
 	while (!isShutdown())
 	{
-		resip::Lock lock(mutex_);
 		if (rtpSession_.Poll() < 0)
 			continue;
 
+		resip::Lock lock(mutex_);
 		rtpSession_.BeginDataAccess();
 		if (rtpSession_.GotoFirstSourceWithData())
 		{

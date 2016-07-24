@@ -95,7 +95,7 @@ static const unsigned int RATE_AUDIO = 8000;
 static const unsigned int RATE_VIDEO = 90000;
 static const unsigned int VIDEO_WIDTH = 480;
 static const unsigned int VIDEO_HEIGHT = 360;
-static const unsigned int VIDEO_FPS = 10;
+static const unsigned int VIDEO_FPS = 15;
 
 CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_SIPCLIENTRCCDUMMY_DIALOG, pParent)
@@ -487,6 +487,9 @@ void CSipClientRccDummyDlg::OnCancel()
 
 void CSipClientRccDummyDlg::outputPcm(char * data, int len)
 {
+	if (!mediaCall_ && !mediaTest_)
+		return;
+
 	static Buffer tmpBuf;
 	
 	tmpBuf.erase();
@@ -497,7 +500,6 @@ void CSipClientRccDummyDlg::outputPcm(char * data, int len)
 		pch[i] = s16_to_alaw(s16[i]);
 	
 	rtpAudio_.sendData((char*)pch, len/2);
-	
 }
 
 void CSipClientRccDummyDlg::OnBnClickedMediaTest()
@@ -581,7 +583,10 @@ void CSipClientRccDummyDlg::onVideoEncodeFin(char * data, int len, unsigned char
 {
 	if (!mediaCall_ && !mediaTest_)
 		return;
-	rtpVideo_.sendData(data, len, pt, mark, tm);
+
+//	if (mediaCall_)
+		rtpVideo_.sendData(data, len, pt, mark, tm);
+//	else onMediaData(data, len, pt, 0);
 }
 
 void CSipClientRccDummyDlg::OnBnClickedVideoEnable()
