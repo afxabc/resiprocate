@@ -7,6 +7,7 @@ extern "C"
 #include "libswscale/swscale.h"
 };
 
+#include "buffer.h"
 class IVideoDecodecCallback
 {
 public:
@@ -30,5 +31,6 @@ private:
 	uint8_t* pDataRGB_;
 	AVFrame *pFrameYUV_;
 	uint8_t* pDataYUV_;
+	Buffer nalBuffer_;
 };
 

@@ -110,11 +110,11 @@ CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	, videoCap_(this)
 	, audioRead_(this)
 	, audioFile_(this)
-	, audioTest_(FALSE)
-	, audioCall_(FALSE)
+	, mediaTest_(FALSE)
+	, mediaCall_(FALSE)
 	, audioSrc_(0)
 	, numIcome_(_T(""))
-	, videoEnable_(TRUE)
+	, videoEnable_(FALSE)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -125,7 +125,7 @@ void CSipClientRccDummyDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_LOCAL_NUM, localNum_);
 	DDX_Text(pDX, IDC_REMOTE_NUM, remoteNum_);
 	DDX_Control(pDX, IDC_MSG_LIST, msgList_);
-	DDX_Check(pDX, IDC_AUDIO_TEST, audioTest_);
+	DDX_Check(pDX, IDC_AUDIO_TEST, mediaTest_);
 	DDX_CBIndex(pDX, IDC_AUDIO_SRC, audioSrc_);
 	DDX_Text(pDX, IDC_INCOME_NUM, numIcome_);
 	DDX_Check(pDX, IDC_VIDEO_ENABLE, videoEnable_);
@@ -140,7 +140,7 @@ BEGIN_MESSAGE_MAP(CSipClientRccDummyDlg, CDialogEx)
 	ON_BN_CLICKED(IDC_INVITE, &CSipClientRccDummyDlg::OnBnClickedInvite)
 	ON_BN_CLICKED(IDC_ACCEPT, &CSipClientRccDummyDlg::OnBnClickedAccept)
 	ON_BN_CLICKED(IDC_CLOSECALL, &CSipClientRccDummyDlg::OnBnClickedClosecall)
-	ON_BN_CLICKED(IDC_AUDIO_TEST, &CSipClientRccDummyDlg::OnBnClickedAudioTest)
+	ON_BN_CLICKED(IDC_AUDIO_TEST, &CSipClientRccDummyDlg::OnBnClickedMediaTest)
 	ON_CBN_SELCHANGE(IDC_AUDIO_SRC, &CSipClientRccDummyDlg::OnCbnSelchangeAudioSrc)
 	ON_COMMAND_RANGE(IDC_DTMF_0, IDC_DTMF_SHARP, &CSipClientRccDummyDlg::OnDtmfKey)
 	ON_BN_CLICKED(IDC_VIDEO_ENABLE, &CSipClientRccDummyDlg::OnBnClickedVideoEnable)
@@ -188,6 +188,8 @@ BOOL CSipClientRccDummyDlg::OnInitDialog()
 	this->GetWindowRect(&R);
 	winMin_ = r.left - R.left;
 	winMax_ = R.right - R.left;
+
+	OnBnClickedVideoEnable();
 
 	return TRUE;  // 除非将焦点设置到控件，否则返回 TRUE
 }
@@ -287,10 +289,11 @@ void CSipClientRccDummyDlg::OnOK()
 
 void CSipClientRccDummyDlg::onMessage(RccMessage::MessageType type)
 {
-	TRACE("onMessage : [%d]\n", (int)type);
-
 	if (type == RccMessage::RCC_CONN)
+	{
 		onMessageConn();
+	}
+	else TRACE("onMessage : [%d]\n", (int)type);
 }
 
 void CSipClientRccDummyDlg::onMessageAcm(RccMessage::MessageType which, unsigned char result)
@@ -320,18 +323,10 @@ void CSipClientRccDummyDlg::onMessageRel(unsigned char reason)
 	UpdateData(FALSE);
 	this->GetDlgItem(IDC_ACCEPT)->EnableWindow(FALSE);
 
-	rtpAudio_.stop();
-	audioWrite_.stop();
-	audioRead_.stop();
-	audioFile_.stop();
-
-	rtpVideo_.stop();
-	videoCap_.stop();
-	videoDraw_.stop(); 
-	drawWnd_.Invalidate();
+	mediaStop();
 
 	showString("结束通话。 (%d)", (int)reason);
-	audioCall_ = FALSE;
+	mediaCall_ = FALSE;
 }
 
 void CSipClientRccDummyDlg::onMessageIam(const char * callNumber, RccRtpDataList & rtpDataList)
@@ -389,10 +384,17 @@ void CSipClientRccDummyDlg::onInvalidMessage(RccMessage * msg)
 void CSipClientRccDummyDlg::onMessageConn()
 {
 	this->GetDlgItem(IDC_ACCEPT)->EnableWindow(FALSE);
+	mediaCall_ = TRUE;
 
-	audioCall_ = TRUE;
+	mediaStart();
+
 	showString("通话中......");
+}
 
+/////////////////////////////////////////////////////////////
+
+void CSipClientRccDummyDlg::mediaStart()
+{
 	rtpAudio_.start(PTIME);
 	audioWrite_.start(rtpAudio_.rate(), PTIME);
 	if (audioSrc_ == 0)
@@ -400,14 +402,30 @@ void CSipClientRccDummyDlg::onMessageConn()
 	else if (audioSrc_ == 1)
 		audioFile_.start(rtpAudio_.rate(), PTIME);
 
-	if (!videoEnable_)
-		return;
-	rtpVideo_.start(1000/VIDEO_FPS);
-	videoCap_.start(VIDEO_WIDTH, VIDEO_HEIGHT, rtpVideo_.rate(), VIDEO_FPS);
-	videoDraw_.start(&drawWnd_, rtpVideo_.r_rate());
+	if (videoEnable_)
+	{
+		rtpVideo_.start(1000/VIDEO_FPS);
+		videoCap_.start(VIDEO_WIDTH, VIDEO_HEIGHT, rtpVideo_.rate(), VIDEO_FPS);
+		videoDraw_.start(&drawWnd_, rtpVideo_.r_rate());
+	}
+	
+	GetDlgItem(IDC_VIDEO_ENABLE)->EnableWindow(FALSE);
 }
 
-/////////////////////////////////////////////////////////////
+void CSipClientRccDummyDlg::mediaStop()
+{
+	rtpAudio_.stop();
+	audioWrite_.stop();
+	audioRead_.stop();
+	audioFile_.stop();
+
+	rtpVideo_.stop();
+	videoCap_.stop();
+	videoDraw_.stop();
+	drawWnd_.Invalidate();
+
+	GetDlgItem(IDC_VIDEO_ENABLE)->EnableWindow(TRUE);
+}
 
 void CSipClientRccDummyDlg::OnBnClickedRegister()
 {
@@ -449,19 +467,13 @@ void CSipClientRccDummyDlg::OnBnClickedClosecall()
 {
 	// TODO: 在此添加控件通知处理程序代码
 	rccAgent_.sendMessageRel();
-	audioWrite_.stop();
-	videoCap_.stop();
-	videoDraw_.stop();
-	drawWnd_.Invalidate();
+	mediaStop();
 }
-
 
 void CSipClientRccDummyDlg::OnCancel()
 {
 	// TODO: 在此添加专用代码和/或调用基类
-	rtpAudio_.stop();
-	rtpVideo_.stop();
-
+	
 	OnBnClickedClosecall();
 	USES_CONVERSION;
 	rccAgent_.sendMessageUrgst(W2A(localNum_));
@@ -476,52 +488,31 @@ void CSipClientRccDummyDlg::OnCancel()
 void CSipClientRccDummyDlg::outputPcm(char * data, int len)
 {
 	static Buffer tmpBuf;
-	if (audioCall_)
-	{
-		tmpBuf.erase();
-		tmpBuf.pushBack(len/2, true);
-		unsigned char* pch = (unsigned char*)tmpBuf.beginRead();
-		short* s16 = (short*)data;
-		for (int i = 0; i < len / 2; ++i)
-			pch[i] = s16_to_alaw(s16[i]);
-		
-		rtpAudio_.sendData((char*)pch, len/2);
-	}
-	else if (audioTest_)
-		audioWrite_.inputPcm(data, len);
+	
+	tmpBuf.erase();
+	tmpBuf.pushBack(len/2, true);
+	unsigned char* pch = (unsigned char*)tmpBuf.beginRead();
+	short* s16 = (short*)data;
+	for (int i = 0; i < len / 2; ++i)
+		pch[i] = s16_to_alaw(s16[i]);
+	
+	rtpAudio_.sendData((char*)pch, len/2);
+	
 }
 
-void CSipClientRccDummyDlg::OnBnClickedAudioTest()
+void CSipClientRccDummyDlg::OnBnClickedMediaTest()
 {
-	if (audioCall_)
+	if (mediaCall_)
 		return;
 
 	UpdateData();
-	if (audioTest_)
+	if (mediaTest_)
 	{
-		audioWrite_.start(rtpAudio_.r_rate(), PTIME);
-		if (audioSrc_ == 0)
-			audioRead_.start(rtpAudio_.r_rate(), PTIME);
-		else if (audioSrc_ == 1)
-			audioFile_.start(rtpAudio_.r_rate(), PTIME);
-
-		if (videoEnable_)
-		{
-			videoCap_.start(VIDEO_WIDTH, VIDEO_HEIGHT, rtpVideo_.rate(), VIDEO_FPS);
-			videoDraw_.start(&drawWnd_, rtpVideo_.r_rate());
-		}
+		rtpAudio_.setRemoteSelf();
+		rtpVideo_.setRemoteSelf();
+		mediaStart();
 	}
-	else
-	{
-		//rtpSession_.ClearDestinations();
-		audioWrite_.stop();
-		audioRead_.stop();
-		audioFile_.stop();
-
-		videoCap_.stop();
-		videoDraw_.stop();
-		drawWnd_.Invalidate();
-	}
+	else mediaStop();
 }
 
 void CSipClientRccDummyDlg::OnCbnSelchangeAudioSrc()
@@ -541,7 +532,7 @@ void CSipClientRccDummyDlg::OnCbnSelchangeAudioSrc()
 
 void CSipClientRccDummyDlg::OnDtmfKey(UINT key_id)
 {
-	if (!audioCall_)
+	if (!mediaCall_)
 		return;
 
 	int evt = key_id - IDC_DTMF_0;
@@ -551,7 +542,7 @@ void CSipClientRccDummyDlg::OnDtmfKey(UINT key_id)
 	rtpAudio_.sendDtmfKey(evt, vol, duration);
 }
 
-void CSipClientRccDummyDlg::onMediaData(char * data, int len, unsigned char payload)
+void CSipClientRccDummyDlg::onMediaData(char * data, int len, unsigned char payload, unsigned short seq)
 {
 	if (rtpAudio_.r_payload() == payload)
 	{
@@ -571,7 +562,13 @@ void CSipClientRccDummyDlg::onMediaData(char * data, int len, unsigned char payl
 	}
 	else if (rtpVideo_.r_payload() == payload)
 	{
-//		TRACE("======================= len=%d\n", len);
+		static unsigned short seqBak = 0;
+		if (seq - seqBak > 1)
+		{
+			TRACE("======== 包号：%d  %d\r\n", seq, (seq - seqBak));
+		}
+		seqBak = seq;
+
 		videoDraw_.decodeAndDraw(data, len);
 	}
 	else
@@ -582,16 +579,10 @@ void CSipClientRccDummyDlg::onMediaData(char * data, int len, unsigned char payl
 
 void CSipClientRccDummyDlg::onVideoEncodeFin(char * data, int len, unsigned char pt, bool mark, unsigned long tm)
 {
-//	TRACE("+++++++++++++++++++++++ len=%d\n", len);
-	if (audioCall_)
-	{
-		rtpVideo_.sendData(data, len, pt, mark, tm);
-	}
-	else if (audioTest_)
-		videoDraw_.decodeAndDraw(data, len);
-//	videoDec_.decode(data, len, this);
+	if (!mediaCall_ && !mediaTest_)
+		return;
+	rtpVideo_.sendData(data, len, pt, mark, tm);
 }
-
 
 void CSipClientRccDummyDlg::OnBnClickedVideoEnable()
 {

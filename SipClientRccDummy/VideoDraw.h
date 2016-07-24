@@ -4,7 +4,11 @@
 #include "VideoDecode.h"
 #include "vfw.h"
 
-class VideoDraw : public IVideoDecodecCallback
+#include "buffer.h"
+#include "queue.h"
+#include "rutil\ThreadIf.hxx"
+
+class VideoDraw : public IVideoDecodecCallback, resip::ThreadIf
 {
 public:
 	VideoDraw();
@@ -23,8 +27,12 @@ private:
 	BITMAPINFOHEADER drawInfo_;
 	HDRAWDIB drawDib_;
 	RECT drawRect_;
+	Queue<Buffer> decQueue_;
 
 	// 通过 IVideoDecodecCallback 继承
 	virtual void onVideoDecodeFin(char * data, int len, int width, int height, AVPixelFormat fmt, unsigned long tm) override;
+
+	// 通过 ThreadIf 继承
+	virtual void thread() override;
 };
 

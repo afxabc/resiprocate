@@ -85,6 +85,7 @@ void VideoDecode::close()
 		pDataYUV_ = NULL;
 	}
 
+	nalBuffer_.erase();
 }
 
 bool VideoDecode::decode(const char * data, int len, IVideoDecodecCallback * cb)
@@ -92,9 +93,37 @@ bool VideoDecode::decode(const char * data, int len, IVideoDecodecCallback * cb)
 	if (pContext_ == NULL || cb == NULL || data == NULL)
 		return false;
 
+	if ((data[0] & 0x1F) == 28 || (data[0] & 0x1F) == 29)
+	{
+		if ((data[1] & 0x80) != 0)		//start
+		{
+			nalBuffer_.erase();
+			char FU = (data[0] & 0xE0)|(data[1] & 0x1F);
+			nalBuffer_.pushBack(FU, 1, true);
+		}
+
+		nalBuffer_.pushBack(data+2, len-2, true);
+		if ((data[1] & 0x40) == 0)		//not end
+			return false;
+
+		data = nalBuffer_.beginRead();
+		len = nalBuffer_.readableBytes();
+	}
+
 	AVPacket pkt;
+	char* tmpBuf = NULL;
 	int size = len;
 	const char * pb = data;
+	if (data[0] != 0 || data[1] != 0 || data[2] != 0 || data[3] == 1 )
+	{
+		tmpBuf = new char[len + 4];
+		tmpBuf[0] = tmpBuf[1] = tmpBuf[2] = 0;
+		tmpBuf[3] = 1;
+		memcpy(tmpBuf + 4, data, len);
+		pb = tmpBuf;
+		size = len + 4;
+	} 
+
 	while (size > 0)
 	{
 		pkt.data = (uint8_t*)pb;
@@ -125,5 +154,8 @@ bool VideoDecode::decode(const char * data, int len, IVideoDecodecCallback * cb)
 		size -= len;
 		pb += len;
 	}
-	return false;
+
+	delete[] tmpBuf;
+
+	return true;
 }

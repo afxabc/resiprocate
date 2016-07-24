@@ -123,7 +123,51 @@ bool VideoEncode::encode(const char* data, int len, IVideoEncodecCallback * cb, 
 	len = avcodec_encode_video2(pContext_, &pkt, pFrameYUV_, &got_frm);
 	if (got_frm)
 	{
-		cb->onVideoEncodeFin((char*)pkt.data, pkt.size, pt_, (pkt.flags==AV_PKT_FLAG_KEY), 1000 / pContext_->time_base.den);
+		char* pdata = (char*)pkt.data;
+		int size = pkt.size;
+		if (pdata[0] == 0 && pdata[1] == 0)
+		{
+			if (pdata[2] == 0 && pdata[3] == 1)
+				pdata += 4, size -= 4;
+			else if (pdata[2] == 1)
+				pdata += 3, size -= 3;
+		}
+
+		static const int MAX_PACKET_SIZE = 1280;
+		if (size > MAX_PACKET_SIZE)
+		{
+			char outBuf[MAX_PACKET_SIZE];
+			outBuf[0] = (pdata[0] & 0xE0) | 28; // FU indicator  
+			char FU = (pdata[0] & 0x1F); // FU header (with S bit)  
+			pdata += 1;
+			size -= 1;
+			bool first = true;
+			unsigned long tm = 0;
+			while (size > 0)
+			{
+				int len = (size > (MAX_PACKET_SIZE - 2)) ? (MAX_PACKET_SIZE - 2) : size;
+				memcpy(outBuf + 2, pdata, len);
+				if (first)
+				{
+					outBuf[1] = FU | 0x80;
+					first = false;
+				}
+				else
+				{
+					outBuf[1] = FU;
+					if (len == size)		//last
+					{
+						outBuf[1] = FU | 0x40;
+						tm = 1000 / pContext_->time_base.den;
+					}
+				}
+				cb->onVideoEncodeFin(outBuf, len+2, pt_, 1, tm);
+
+				pdata += len;
+				size -= len;
+			}
+		}
+		else cb->onVideoEncodeFin(pdata, size, pt_, 1, 1000 / pContext_->time_base.den);
 		av_packet_unref(&pkt);
 		return true;
 	}

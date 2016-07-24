@@ -1,8 +1,8 @@
 #ifndef RTPMEDIA_HEADDER_H_H__
 #define RTPMEDIA_HEADDER_H_H__
 
-#include "jrtplib\rtpsession.h"
-#include "jrtplib\rtppacket.h"
+#include "jrtplib3\rtpsession.h"
+#include "jrtplib3\rtppacket.h"
 #include "SipClientUdp\RccUserAgent.h"
 #include "rutil\ThreadIf.hxx"
 
@@ -10,7 +10,7 @@ class RTPMedia;
 class IRTPMediaCallback
 {
 public:
-	virtual void onMediaData(char* data, int len, unsigned char payload) = 0;
+	virtual void onMediaData(char* data, int len, unsigned char payload, unsigned short seq) = 0;
 };
 
 class RTPMedia : public resip::ThreadIf
@@ -20,6 +20,7 @@ public:
 	~RTPMedia();
 
 	void setRemote(const std::string& ip, unsigned short port, unsigned char payload, unsigned int rate);
+	void setRemoteSelf();
 	bool start(unsigned int ptime);
 	unsigned short tryPort(unsigned short port);
 	void stop();
@@ -43,7 +44,7 @@ private:
 	IRTPMediaCallback* cb_;
 
 	resip::Mutex mutex_;
-	RTPSession rtpSession_;
+	jrtplib::RTPSession rtpSession_;
 	unsigned short hdrextID_;
 
 	std::string rtpIP_;

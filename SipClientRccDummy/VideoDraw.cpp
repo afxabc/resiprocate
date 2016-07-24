@@ -8,6 +8,7 @@ VideoDraw::VideoDraw()
 {
 	memset(&drawInfo_, 0, sizeof(drawInfo_));
 	drawInfo_.biSize = sizeof(drawInfo_);
+	mShutdown = true;
 }
 
 
@@ -19,11 +20,21 @@ VideoDraw::~VideoDraw()
 bool VideoDraw::start(CWnd * drawWnd, int rate, AVCodecID codec)
 {
 	drawWnd_ = drawWnd;
-	return decode_.open(rate, codec);
+	if (!decode_.open(rate, codec))
+		return false;
+	this->run();
+	return true;
 }
 
 void VideoDraw::stop()
 {
+	if (mShutdown)
+		return;
+
+	mShutdown = true;
+	this->shutdown();
+	this->join();
+
 	decode_.close();
 	if (drawDib_ != NULL)
 	{
@@ -42,7 +53,9 @@ void VideoDraw::stop()
 
 bool VideoDraw::decodeAndDraw(const char * data, int len)
 {
-	return decode_.decode(data, len, this);
+	decQueue_.putBack(Buffer(data, len));
+	return true;
+//	return decode_.decode(data, len, this);
 }
 
 void VideoDraw::resetDraw(int width, int height)
@@ -83,4 +96,17 @@ void VideoDraw::onVideoDecodeFin(char * data, int len, int width, int height, AV
 
 	CClientDC dc(drawWnd_);
 	DrawDibDraw(drawDib_, dc.m_hDC, drawRect_.left, drawRect_.top, drawInfo_.biWidth, drawInfo_.biHeight, &drawInfo_, data, 0, 0, drawInfo_.biWidth, drawInfo_.biHeight, DDF_JUSTDRAWIT);
+}
+
+void VideoDraw::thread()
+{
+	Buffer tmp;
+	mShutdown = false;
+	while (!isShutdown())
+	{
+		if (decQueue_.getFront(tmp, 100))
+		{
+			decode_.decode(tmp.beginRead(), tmp.readableBytes(), this);
+		}
+	}
 }

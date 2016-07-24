@@ -92,12 +92,12 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_WINDOWS;_DEBUG;_SCL_SECURE_NO_WARNINGS;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>false</SDLCheck>
-      <AdditionalIncludeDirectories>../;F:\SDK\ffmpeg\include;F:\SDK\x264\include</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>../;F:\SDK\ffmpeg\include;F:\SDK\jrtplib\include</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
-      <AdditionalDependencies>libx264.a;libswscale.a;libavcodec.a;libavutil.a;libavformat.a;libswresample.a;jrtplib.lib;rutil.lib;ares.lib;vfw32.lib;winmm.lib;uafxcwd.lib;LIBCMTD.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>..\Win32\Debug;$(OutDir);./;F:\SDK\ffmpeg\lib</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libx264.a;libswscale.a;libavcodec.a;libavutil.a;libavformat.a;libswresample.a;jrtplib_d.lib;rutil.lib;ares.lib;vfw32.lib;winmm.lib;uafxcwd.lib;LIBCMTD.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>..\Win32\Debug;$(OutDir);./;F:\SDK\ffmpeg\lib;F:\SDK\jrtplib\lib</AdditionalLibraryDirectories>
       <UACExecutionLevel>AsInvoker</UACExecutionLevel>
       <IgnoreSpecificDefaultLibraries>uafxcwd.lib;LIBCMTD.lib</IgnoreSpecificDefaultLibraries>
     </Link>

@@ -54,7 +54,7 @@ protected:
 	afx_msg void OnBnClickedInvite();
 	afx_msg void OnBnClickedAccept();
 	afx_msg void OnBnClickedClosecall();
-	afx_msg void OnBnClickedAudioTest();
+	afx_msg void OnBnClickedMediaTest();
 	afx_msg void OnCbnSelchangeAudioSrc();
 
 	afx_msg void OnDtmfKey(UINT key_id);
@@ -81,6 +81,9 @@ protected:
 	virtual void onInvalidMessage(RccMessage * msg) override;
 	void onMessageConn();
 
+	void mediaStart();
+	void mediaStop();
+
 protected:
 	HICON m_hIcon;
 	CString localNum_;
@@ -102,9 +105,10 @@ protected:
 	AudioWrite audioWrite_;
 	AudioRead audioRead_;
 	AudioFile audioFile_;
-	BOOL audioTest_;
-	BOOL audioCall_;
+	BOOL mediaTest_;
+	BOOL mediaCall_;
 	int audioSrc_;
+
 	CString numIcome_;
 	BOOL videoEnable_;
 
@@ -113,11 +117,12 @@ protected:
 	int winMax_;
 
 	// 通过 IRTPMediaCallback 继承
-	virtual void onMediaData(char * data, int len, unsigned char payload) override;
+	virtual void onMediaData(char * data, int len, unsigned char payload, unsigned short seq) override;
 
 	// 通过 IVideoEncodecCallback 继承
 	virtual void onVideoEncodeFin(char * data, int len, unsigned char pt, bool mark, unsigned long tm) override;
 
 public:
 	afx_msg void OnBnClickedVideoEnable();
+
 };

@@ -71,7 +71,9 @@ void VideoCapDesktop::thread()
 	{
 		Timestamp now = Timestamp::NOW();
 
-		::BitBlt(hdc2, 0, 0, width_, height_, hdc, 100, 100, SRCCOPY);
+		POINT pt;
+		::GetCursorPos(&pt);
+		::BitBlt(hdc2, 0, 0, width_, height_, hdc, pt.x-width_/2, pt.y-height_/2, SRCCOPY);
 		int len = ::GetDIBits(hdc2, hbmp, 0, height_, data, (LPBITMAPINFO)(&imgInfo), DIB_RGB_COLORS);
 		if (len > 0)
 		{
