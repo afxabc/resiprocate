@@ -6,14 +6,20 @@
 #include "SipClientUdp\RccUserAgent.h"
 #include "rutil\ThreadIf.hxx"
 
+
+#pragma comment(lib, "jrtplib_d.lib")  
+#pragma comment(lib,"jthread_d.lib")  
+
 class RTPMedia;
 class IRTPMediaCallback
 {
 public:
 	virtual void onMediaData(char* data, int len, unsigned char payload, unsigned short seq) = 0;
+	virtual void onMediaError(int status) = 0;
 };
 
-class RTPMedia : public resip::ThreadIf
+using namespace jrtplib;
+class RTPMedia : public jrtplib::RTPSession
 {
 public:
 	RTPMedia(IRTPMediaCallback* cb, const char* ip, unsigned short port, unsigned char payload, unsigned int rate);
@@ -21,8 +27,7 @@ public:
 
 	void setRemote(const std::string& ip, unsigned short port, unsigned char payload, unsigned int rate);
 	void setRemoteSelf();
-	bool start(unsigned int ptime);
-	unsigned short tryPort(unsigned short port);
+	bool start(unsigned int ptime, int fps = 0);
 	void stop();
 	int sendData(char* data, int len);
 	int sendData(char *data, int len, unsigned char pt, bool mark, unsigned long timestampinc);
@@ -43,8 +48,8 @@ public:
 private:
 	IRTPMediaCallback* cb_;
 
-	resip::Mutex mutex_;
-	jrtplib::RTPSession rtpSession_;
+//	resip::Mutex mutex_;
+//	RTPSession rtpSession_;
 	unsigned short hdrextID_;
 
 	std::string rtpIP_;
@@ -57,10 +62,12 @@ private:
 	unsigned char remoteRtpPayload_;
 	unsigned int remoteRtpRate_;
 
-
-	// 通过 ThreadIf 继承
-	virtual void thread() override;
-
+	// 通过 RTPSession 继承
+protected:
+	virtual void OnRTPPacket(RTPPacket *pack, const RTPTime &receivetime, const RTPAddress *senderaddress);
+	virtual void OnRTCPCompoundPacket(RTCPCompoundPacket *pack, const RTPTime &receivetime, const RTPAddress *senderaddress);
+	virtual void OnPollThreadStep();
+	virtual void OnPollThreadError(int status);
 };
 
 #endif

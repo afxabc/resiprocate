@@ -95,7 +95,7 @@ static const unsigned int RATE_AUDIO = 8000;
 static const unsigned int RATE_VIDEO = 90000;
 static const unsigned int VIDEO_WIDTH = 480;
 static const unsigned int VIDEO_HEIGHT = 360;
-static const unsigned int VIDEO_FPS = 15;
+static const unsigned int VIDEO_FPS = 10;
 
 CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	: CDialogEx(IDD_SIPCLIENTRCCDUMMY_DIALOG, pParent)
@@ -115,6 +115,8 @@ CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	, audioSrc_(0)
 	, numIcome_(_T(""))
 	, videoEnable_(FALSE)
+	, sendAudio_(0)
+	, sendVideo_(0)
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -144,6 +146,7 @@ BEGIN_MESSAGE_MAP(CSipClientRccDummyDlg, CDialogEx)
 	ON_CBN_SELCHANGE(IDC_AUDIO_SRC, &CSipClientRccDummyDlg::OnCbnSelchangeAudioSrc)
 	ON_COMMAND_RANGE(IDC_DTMF_0, IDC_DTMF_SHARP, &CSipClientRccDummyDlg::OnDtmfKey)
 	ON_BN_CLICKED(IDC_VIDEO_ENABLE, &CSipClientRccDummyDlg::OnBnClickedVideoEnable)
+	ON_WM_TIMER()
 END_MESSAGE_MAP()
 
 
@@ -158,6 +161,8 @@ BOOL CSipClientRccDummyDlg::OnInitDialog()
 	SetIcon(m_hIcon, TRUE);			// 设置大图标
 	SetIcon(m_hIcon, FALSE);		// 设置小图标
 
+	GetWindowText(strTitle_);
+
 	// TODO: 在此添加额外的初始化代码
 	static const char* finame = "./config.txt";
 	char tmpBuf[1024];
@@ -170,8 +175,8 @@ BOOL CSipClientRccDummyDlg::OnInitDialog()
 	if (LoadParamString(finame, "RTP", "PORT", tmpBuf) >= 2)
 	{
 		unsigned short rtpPortBase = atoi(tmpBuf);
-		rtpPortBase = rtpAudio_.tryPort(rtpPortBase);
-		rtpPortBase = rtpVideo_.tryPort(rtpPortBase);
+		rtpAudio_.port() = rtpPortBase;
+		rtpVideo_.port() = rtpPortBase+2;
 	}
 
 	if (LoadParamString(finame, "RCC", "ADDR", tmpBuf) >= 2)
@@ -395,6 +400,7 @@ void CSipClientRccDummyDlg::onMessageConn()
 
 void CSipClientRccDummyDlg::mediaStart()
 {
+	sendAudio_ = 0;
 	rtpAudio_.start(PTIME);
 	audioWrite_.start(rtpAudio_.rate(), PTIME);
 	if (audioSrc_ == 0)
@@ -402,18 +408,23 @@ void CSipClientRccDummyDlg::mediaStart()
 	else if (audioSrc_ == 1)
 		audioFile_.start(rtpAudio_.rate(), PTIME);
 
+	sendVideo_ = 0;
 	if (videoEnable_)
 	{
-		rtpVideo_.start(1000/VIDEO_FPS);
+		rtpVideo_.start(0, VIDEO_FPS);
 		videoCap_.start(VIDEO_WIDTH, VIDEO_HEIGHT, rtpVideo_.rate(), VIDEO_FPS);
 		videoDraw_.start(&drawWnd_, rtpVideo_.r_rate());
 	}
 	
 	GetDlgItem(IDC_VIDEO_ENABLE)->EnableWindow(FALSE);
+
+	SetTimer(1, TIMER_SPAN*1000, NULL);
 }
 
 void CSipClientRccDummyDlg::mediaStop()
 {
+	KillTimer(1);
+
 	rtpAudio_.stop();
 	audioWrite_.stop();
 	audioRead_.stop();
@@ -425,6 +436,8 @@ void CSipClientRccDummyDlg::mediaStop()
 	drawWnd_.Invalidate();
 
 	GetDlgItem(IDC_VIDEO_ENABLE)->EnableWindow(TRUE);
+
+	SetWindowText(strTitle_);
 }
 
 void CSipClientRccDummyDlg::OnBnClickedRegister()
@@ -499,6 +512,7 @@ void CSipClientRccDummyDlg::outputPcm(char * data, int len)
 	for (int i = 0; i < len / 2; ++i)
 		pch[i] = s16_to_alaw(s16[i]);
 	
+	sendAudio_ += len / 2;
 	rtpAudio_.sendData((char*)pch, len/2);
 }
 
@@ -579,13 +593,19 @@ void CSipClientRccDummyDlg::onMediaData(char * data, int len, unsigned char payl
 	}
 }
 
+void CSipClientRccDummyDlg::onMediaError(int status)
+{
+	TRACE("!!!!!!!!!!!!!!!!! MediaError %d\n", status);
+}
+
 void CSipClientRccDummyDlg::onVideoEncodeFin(char * data, int len, unsigned char pt, bool mark, unsigned long tm)
 {
 	if (!mediaCall_ && !mediaTest_)
 		return;
 
+	sendVideo_ += len;
 //	if (mediaCall_)
-		rtpVideo_.sendData(data, len, pt, mark, tm);
+		rtpVideo_.sendData(data, len, pt, true, tm);
 //	else onMediaData(data, len, pt, 0);
 }
 
@@ -600,4 +620,20 @@ void CSipClientRccDummyDlg::OnBnClickedVideoEnable()
 		r.right = r.left + winMax_;
 	else r.right = r.left + winMin_;
 	this->MoveWindow(&r);
+}
+
+
+void CSipClientRccDummyDlg::OnTimer(UINT_PTR nIDEvent)
+{
+	// TODO: 在此添加消息处理程序代码和/或调用默认值
+	__super::OnTimer(nIDEvent);
+
+	float av = (float)sendAudio_ / TIMER_SPAN/1000;
+	sendAudio_ = 0;
+	float vv = (float)sendVideo_ / TIMER_SPAN/1000;
+	sendVideo_ = 0;
+
+	CString str;
+	str.Format(_T("%s A=%.2fK V=%.2fK"), strTitle_, av, vv);
+	SetWindowText(str);
 }

@@ -85,6 +85,7 @@ protected:
 	void mediaStop();
 
 protected:
+	CString strTitle_;
 	HICON m_hIcon;
 	CString localNum_;
 	CString remoteNum_;
@@ -98,6 +99,10 @@ protected:
 
 	RTPMedia rtpAudio_;
 	RTPMedia rtpVideo_;
+
+	UINT sendAudio_;
+	UINT sendVideo_;
+	static const int TIMER_SPAN = 2;
 
 	VideoCapDesktop videoCap_; 
 	VideoDraw	videoDraw_;
@@ -118,11 +123,14 @@ protected:
 
 	// 通过 IRTPMediaCallback 继承
 	virtual void onMediaData(char * data, int len, unsigned char payload, unsigned short seq) override;
+	virtual void onMediaError(int status) override;
 
 	// 通过 IVideoEncodecCallback 继承
 	virtual void onVideoEncodeFin(char * data, int len, unsigned char pt, bool mark, unsigned long tm) override;
 
 public:
 	afx_msg void OnBnClickedVideoEnable();
+
+	afx_msg void OnTimer(UINT_PTR nIDEvent);
 
 };

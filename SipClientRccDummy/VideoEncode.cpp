@@ -47,10 +47,18 @@ bool VideoEncode::open(int width, int height, int rate, int fps, AVCodecID codec
 	pContext_->height = height;
 	pContext_->time_base.num = 1;
 	pContext_->time_base.den = fps;
-	pContext_->max_b_frames = 1;
-	pContext_->gop_size = pContext_->time_base.den * 3;  
-	pContext_->bit_rate = rate*8; 
+	pContext_->max_b_frames = 0;
+	pContext_->gop_size = fps;
 	pContext_->bit_rate_tolerance = (float)pContext_->bit_rate / (50); 
+	pContext_->coder_type = FF_CODER_TYPE_VLC;
+	pContext_->me_method = 7; //motion estimation algorithm
+	pContext_->me_subpel_quality = 4;
+
+	//ÉèÖÃºã¶¨ÂëÂÊ
+	pContext_->bit_rate = rate*8; 
+//	pContext_->rc_max_rate = pContext_->bit_rate;
+//	pContext_->rc_min_rate = pContext_->bit_rate;
+	pContext_->bit_rate_tolerance = pContext_->bit_rate;
 	
 	nTimestamp_ = 0;
 	pFrameRGB_ = av_frame_alloc();
@@ -133,7 +141,7 @@ bool VideoEncode::encode(const char* data, int len, IVideoEncodecCallback * cb, 
 				pdata += 3, size -= 3;
 		}
 
-		static const int MAX_PACKET_SIZE = 1280;
+		static const int MAX_PACKET_SIZE = 1024;
 		if (size > MAX_PACKET_SIZE)
 		{
 			char outBuf[MAX_PACKET_SIZE];

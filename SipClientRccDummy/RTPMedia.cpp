@@ -9,7 +9,6 @@
 #include "jrtplib3\rtptimeutilities.h"
 #include "jrtplib3\rtppacket.h"
 
-using namespace jrtplib;
 
 RTPMedia::RTPMedia(IRTPMediaCallback* cb, const char* ip, unsigned short port, unsigned char payload, unsigned int rate)
 	: cb_(cb)
@@ -22,7 +21,6 @@ RTPMedia::RTPMedia(IRTPMediaCallback* cb, const char* ip, unsigned short port, u
 	, remoteRtpRate_(rate)
 	, hdrextID_(1)
 {
-	mShutdown = true;
 }
 
 RTPMedia::~RTPMedia()
@@ -46,124 +44,83 @@ void RTPMedia::setRemoteSelf()
 	remoteRtpRate_ = rtpRate_;
 }
 
-bool RTPMedia::start(unsigned int ptime)
+bool RTPMedia::start(unsigned int ptime, int fps)
 {
 	stop();
 
 	if (remoteRtpPort_ == 0)
 		return false;
 
-	resip::Lock lock(mutex_);
-
 	RTPSessionParams params;
-	params.SetOwnTimestampUnit(1.0 / remoteRtpRate_);
+	if (fps == 0)
+		params.SetOwnTimestampUnit(1.0 / remoteRtpRate_);
+	else params.SetOwnTimestampUnit(1.0 / fps);
 	params.SetAcceptOwnPackets(true);
 //	params.SetMaximumPacketSize(64000);
 
 	RTPUDPv4TransmissionParams trans;
 	trans.SetPortbase(rtpPort_);
 	trans.SetBindIP(ntohl(inet_addr(rtpIP_.c_str())));
+	trans.SetRTPSendBuffer(4 * 1024 * 1024);
+	trans.SetRTPReceiveBuffer(4 * 1024 * 1024);
 
-	int ret = rtpSession_.Create(params, &trans);
+	int ret = Create(params, &trans);
 	if (ret < 0)
 		return false;
 
 	RTPIPv4Address addr(ntohl(inet_addr(remoteRtpIP_.c_str())), remoteRtpPort_);
-	rtpSession_.AddDestination(addr);
-	rtpSession_.SetDefaultPayloadType(remoteRtpPayload_);
-	rtpSession_.SetDefaultTimestampIncrement(ptime*remoteRtpRate_ / 1000);
-	rtpSession_.SetDefaultMark(false);
+	AddDestination(addr);
+	SetDefaultPayloadType(remoteRtpPayload_);
+	if (fps == 0)
+		SetDefaultTimestampIncrement(ptime*remoteRtpRate_ / 1000);
+	else SetDefaultTimestampIncrement(1000 / fps);
+	SetDefaultMark(false);
 
-	this->run();
+//	this->run();
 
 	return true;
 }
 
 void RTPMedia::stop()
 {
-	if (mShutdown)
-		return;
-
-	mShutdown = true;
-	this->shutdown();
-	this->join();
-
-	remoteRtpPort_ = 0;
-	resip::Lock lock(mutex_);
-	rtpSession_.Destroy();
+	if (this->IsActive())
+	{
+		Destroy();
+		remoteRtpPort_ = 0;
+	}
 }
 
 int RTPMedia::sendData(char * data, int len)
 {
-	resip::Lock lock(mutex_);
-	int ret = rtpSession_.SendPacket(data, len);
+	int ret = SendPacket(data, len);
 	return ret;
 }
 
 int RTPMedia::sendData(char * data, int len, unsigned char pt, bool mark, unsigned long timestampinc)
 {
-	resip::Lock lock(mutex_);
-	int ret = rtpSession_.SendPacket(data, len, pt, mark, timestampinc);
+	int ret = SendPacket(data, len, pt, mark, timestampinc);
 	return ret;
 }
 
-unsigned short RTPMedia::tryPort(unsigned short port)
+void RTPMedia::OnRTPPacket(RTPPacket * pack, const RTPTime & receivetime, const RTPAddress * senderaddress)
 {
-	rtpPort_ = port;
+	char* data = (char*)pack->GetPayloadData();
+	int len = pack->GetPayloadLength();
+	unsigned char payload = pack->GetPayloadType();
 
-	RTPSessionParams params;
-	params.SetOwnTimestampUnit(1.0 / remoteRtpRate_);
-	RTPUDPv4TransmissionParams trans;
-	trans.SetPortbase(rtpPort_);
-	while (rtpSession_.Create(params, &trans) < 0)
-	{
-		rtpPort_ += 2;
-		trans.SetPortbase(rtpPort_);
-	}
-	rtpSession_.Destroy();
-
-	return rtpPort_+2;
+	cb_->onMediaData(data, len, payload, ntohs(pack->GetSequenceNumber()) >> 8);
 }
 
-void RTPMedia::thread()
+void RTPMedia::OnRTCPCompoundPacket(RTCPCompoundPacket * pack, const RTPTime & receivetime, const RTPAddress * senderaddress)
 {
-	mShutdown = false;
-	Buffer buff;
-	unsigned short id = 0;
+}
 
-	while (!isShutdown())
-	{
-		if (rtpSession_.Poll() < 0)
-			continue;
+void RTPMedia::OnPollThreadStep()
+{
+}
 
-		resip::Lock lock(mutex_);
-		rtpSession_.BeginDataAccess();
-		if (rtpSession_.GotoFirstSourceWithData())
-		{
-			do
-			{
-				RTPPacket *pack;
-				while ((pack = rtpSession_.GetNextPacket()) != NULL)
-				{
-					if (payload() != rtpPayload_ || cb_ == NULL)
-					{
-						rtpSession_.DeletePacket(pack);
-						continue;
-					}
-
-					char* data = (char*)pack->GetPayloadData();
-					int len = pack->GetPayloadLength();
-					unsigned char payload = pack->GetPayloadType();
-
-					cb_->onMediaData(data, len, payload, ntohs(pack->GetSequenceNumber())>>8);
-
-					rtpSession_.DeletePacket(pack);
-				}
-			} while (rtpSession_.GotoNextSourceWithData());
-		}
-		rtpSession_.EndDataAccess();
-	}
-
+void RTPMedia::OnPollThreadError(int status)
+{
 }
 
 typedef struct _telephone_event
@@ -196,16 +153,16 @@ int RTPMedia::sendDtmfKey(int evt, int vol, int duration)
 	int ret = -1;
 	do
 	{
-		if (rtpSession_.SendPacket((void *)(&event_hdr), sizeof(event_hdr), (unsigned char)TELEPHONE_EVENT, true, (unsigned long)0) < 0)
+		if (SendPacket((void *)(&event_hdr), sizeof(event_hdr), (unsigned char)TELEPHONE_EVENT, true, (unsigned long)0) < 0)
 			break;
 
 		event_hdr.duration += duration;
-		if (rtpSession_.SendPacket((void *)(&event_hdr), sizeof(event_hdr), (unsigned char)TELEPHONE_EVENT, false, (unsigned long)0) < 0)
+		if (SendPacket((void *)(&event_hdr), sizeof(event_hdr), (unsigned char)TELEPHONE_EVENT, false, (unsigned long)0) < 0)
 			break;
 
 		event_hdr.duration += duration;
 		event_hdr.E = 1;
-		if (rtpSession_.SendPacket((void *)(&event_hdr), sizeof(event_hdr), (unsigned char)TELEPHONE_EVENT, false, (unsigned long)event_hdr.duration) < 0)
+		if (SendPacket((void *)(&event_hdr), sizeof(event_hdr), (unsigned char)TELEPHONE_EVENT, false, (unsigned long)event_hdr.duration) < 0)
 			break;
 
 		ret = duration;
