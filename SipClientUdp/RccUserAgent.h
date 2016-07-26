@@ -41,6 +41,7 @@ struct RccMessage
 		RCC_REL,					//释放
 		RCC_CONN,					//连接
 		RCC_OPTION,					//扩展
+		RCC_TXT,					//消息
 		RCC_END
 	};
 
@@ -111,6 +112,15 @@ public:
 			unsigned char which;		//MessageType
 			unsigned char result;		//0正常，其他异常
 		}rccAcm;
+
+		struct RccTxt
+		{
+			unsigned char callNumLength;
+			char callNum[CALLNUM_ALLOC_SIZE];
+			mutable unsigned short txtLength;
+			char txtData[1];
+		}rccTxt;
+
 	};
 }
 #ifndef WIN32
@@ -147,6 +157,7 @@ public:
 	virtual void onMessageRel(unsigned char reason) = 0;
 	virtual void onMessageIam(const char * callNumber, RccRtpDataList& rtpDataList) = 0;
 	virtual void onMessageAnm(RccRtpDataList& rtpDataList) = 0;
+	virtual void onMessageTxt(const char * callNumber, const char * txt, unsigned short len) = 0;
 
 	virtual void onInvalidMessage(RccMessage* msg) = 0;
 };
@@ -171,6 +182,7 @@ public:
 	bool sendMessageIam(const char * callNumber, const RccRtpDataList& rtpDataList);
 	bool sendMessageAnm(const RccRtpData& rtpData);
 	bool sendMessageAnm(const RccRtpDataList& rtpDataList);
+	bool sendMessageTxt(const char * callNumber, const char * txt, unsigned short len);
 
 	int getMessage(char* buff, int sz);
 	void dispatchMessage(const char* buff, IRccMessageCallback* cb);

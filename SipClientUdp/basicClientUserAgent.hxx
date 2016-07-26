@@ -13,6 +13,7 @@
 #include "resip/dum/OutOfDialogHandler.hxx"
 #include "resip/dum/InviteSessionHandler.hxx"
 #include "resip/dum/DialogUsageManager.hxx"
+#include "resip/dum/PagerMessageHandler.hxx"
 #include "resip/dum/Postable.hxx"
 #include "rutil/ThreadIf.hxx"
 
@@ -30,6 +31,8 @@ class BasicClientUserAgent : public Postable,
                              public ClientRegistrationHandler, 
                              public ClientSubscriptionHandler, 
                              public ServerSubscriptionHandler,
+							 public ClientPagerMessageHandler,
+							 public ServerPagerMessageHandler,
                              public OutOfDialogHandler, 
                              public InviteSessionHandler,
                              public DumShutdownHandler,
@@ -202,7 +205,16 @@ private:
 	virtual void onMessageRel(unsigned char reason) override;
 	virtual void onMessageIam(const char * callNumber, RccRtpDataList& rtpDataList) override;
 	virtual void onMessageAnm(RccRtpDataList& rtpDataList) override;
+	virtual void onMessageTxt(const char * callNumber, const char * txt, unsigned short len) override;
 	virtual void onInvalidMessage(RccMessage * msg) override;
+
+	// 通过 ClientPagerMessageHandler 继承
+	virtual void onSuccess(ClientPagerMessageHandle, const SipMessage & status) override;
+	virtual void onFailure(ClientPagerMessageHandle, const SipMessage & status, std::auto_ptr<Contents> contents) override;
+
+	// 通过 ServerPagerMessageHandler 继承
+	virtual void onMessageArrived(ServerPagerMessageHandle, const SipMessage & message) override;
+
 };
  
 }

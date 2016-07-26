@@ -117,6 +117,7 @@ CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	, videoEnable_(FALSE)
 	, sendAudio_(0)
 	, sendVideo_(0)
+	, msgTxt_(_T("可可、向日葵、菠萝、马铃薯、木薯、巴西橡胶树、烟草、金鸡纳树、玉米、番茄、巴拉圭茶、辣椒"))
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -132,6 +133,7 @@ void CSipClientRccDummyDlg::DoDataExchange(CDataExchange* pDX)
 	DDX_Text(pDX, IDC_INCOME_NUM, numIcome_);
 	DDX_Check(pDX, IDC_VIDEO_ENABLE, videoEnable_);
 	DDX_Control(pDX, IDC_DRAW_BK, drawWnd_);
+	DDX_Text(pDX, IDC_MESSAGE_TXT, msgTxt_);
 }
 
 BEGIN_MESSAGE_MAP(CSipClientRccDummyDlg, CDialogEx)
@@ -147,6 +149,7 @@ BEGIN_MESSAGE_MAP(CSipClientRccDummyDlg, CDialogEx)
 	ON_COMMAND_RANGE(IDC_DTMF_0, IDC_DTMF_SHARP, &CSipClientRccDummyDlg::OnDtmfKey)
 	ON_BN_CLICKED(IDC_VIDEO_ENABLE, &CSipClientRccDummyDlg::OnBnClickedVideoEnable)
 	ON_WM_TIMER()
+	ON_BN_CLICKED(IDC_MESSAGE_SEND, &CSipClientRccDummyDlg::OnBnClickedMessageSend)
 END_MESSAGE_MAP()
 
 
@@ -307,7 +310,7 @@ void CSipClientRccDummyDlg::onMessageAcm(RccMessage::MessageType which, unsigned
 		return;
 
 	static const char* msgTag[RccMessage::RCC_END] = { "??", "注册", "注销", "发起呼叫",
-		"消息响应", "应答", "释放", "连接", "扩展" };
+		"消息响应", "应答", "释放", "连接", "扩展", "发送消息" };
 
 	if (result == 0)
 		showString("%s成功。", msgTag[which]);
@@ -380,6 +383,12 @@ void CSipClientRccDummyDlg::onMessageAnm(RccRtpDataList & rtpDataList)
 			showString("  [%d] codec(%d, %d)", i, rtpDataList[i].payload, rtpDataList[i].rate);
 		}
 	}
+}
+
+void CSipClientRccDummyDlg::onMessageTxt(const char * callNumber, const char * txt, unsigned short len)
+{
+	showString("来自%s的消息[%d]：", callNumber, len);
+	showString("  %s", txt);
 }
 
 void CSipClientRccDummyDlg::onInvalidMessage(RccMessage * msg)
@@ -474,6 +483,14 @@ void CSipClientRccDummyDlg::OnBnClickedAccept()
 	
 	USES_CONVERSION;
 	rccAgent_.sendMessageAnm(rccRtpDataList);
+}
+
+void CSipClientRccDummyDlg::OnBnClickedMessageSend()
+{
+	// TODO: 在此添加控件通知处理程序代码
+	UpdateData();
+	USES_CONVERSION;
+	rccAgent_.sendMessageTxt(W2A(remoteNum_), W2A(msgTxt_), strlen(W2A(msgTxt_)));
 }
 
 void CSipClientRccDummyDlg::OnBnClickedClosecall()
@@ -637,3 +654,4 @@ void CSipClientRccDummyDlg::OnTimer(UINT_PTR nIDEvent)
 	str.Format(_T("%s A=%.2fK V=%.2fK"), strTitle_, av, vv);
 	SetWindowText(str);
 }
+

@@ -78,6 +78,7 @@ protected:
 	virtual void onMessageRel(unsigned char reason) override;
 	virtual void onMessageIam(const char * callNumber, RccRtpDataList & rtpDataList) override;
 	virtual void onMessageAnm(RccRtpDataList & rtpDataList) override;
+	virtual void onMessageTxt(const char * callNumber, const char * txt, unsigned short len) override;
 	virtual void onInvalidMessage(RccMessage * msg) override;
 	void onMessageConn();
 
@@ -132,5 +133,8 @@ public:
 	afx_msg void OnBnClickedVideoEnable();
 
 	afx_msg void OnTimer(UINT_PTR nIDEvent);
+
+	afx_msg void OnBnClickedMessageSend();
+	CString msgTxt_;
 
 };

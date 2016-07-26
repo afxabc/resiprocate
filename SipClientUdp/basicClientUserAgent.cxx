@@ -21,6 +21,9 @@
 #include <resip/dum/ClientRegistration.hxx>
 #include <resip/dum/ServerRegistration.hxx>
 #include <resip/dum/ServerOutOfDialogReq.hxx>
+#include <resip/dum/ClientPagerMessage.hxx>
+#include <resip/dum/ServerPagerMessage.hxx>
+#include <resip/stack/SipMessage.hxx>
 #include <rutil/dns/AresDns.hxx>
 
 #if defined (USE_SSL)
@@ -146,6 +149,9 @@ BasicClientUserAgent::BasicClientUserAgent() :
 	mDum->setClientRegistrationHandler(this);
 	mDum->addClientSubscriptionHandler("basicClientTest", this);   // fabricated test event package
 	mDum->addServerSubscriptionHandler("basicClientTest", this);
+
+	mDum->setClientPagerMessageHandler(this);
+	mDum->setServerPagerMessageHandler(this);
 
 	// Set AppDialogSetFactory
 	auto_ptr<AppDialogSetFactory> dsf(new ClientAppDialogSetFactory(*this));
@@ -408,8 +414,45 @@ void resip::BasicClientUserAgent::onMessageAnm(RccRtpDataList& rtpDataList)
 	acceptSession(rtpDataList);
 }
 
+void resip::BasicClientUserAgent::onMessageTxt(const char * callNumber, const char * txt, unsigned short len)
+{
+	Data sToURI = makeValidUri(callNumber);
+
+	Data txtData(txt, len);
+	auto_ptr<Contents> content(new PlainContents(txtData));
+
+	ClientPagerMessageHandle cpmh = mDum->makePagerMessage(NameAddr(sToURI));
+	cpmh.get()->page(content);
+}
+
 void resip::BasicClientUserAgent::onInvalidMessage(RccMessage * msg)
 {
+}
+
+////////////////////////////////////////////////////////
+
+void resip::BasicClientUserAgent::onSuccess(ClientPagerMessageHandle h, const SipMessage & status)
+{
+	mRccAgent.sendMessageAcm(RccMessage::RCC_TXT);
+	h.get()->end();
+}
+
+void resip::BasicClientUserAgent::onFailure(ClientPagerMessageHandle h, const SipMessage & status, std::auto_ptr<Contents> contents)
+{
+	mRccAgent.sendMessageAcm(RccMessage::RCC_TXT, 1);
+	h.get()->end();
+}
+
+void resip::BasicClientUserAgent::onMessageArrived(ServerPagerMessageHandle sh, const SipMessage & message)
+{
+	SharedPtr<SipMessage> ok = sh->accept();
+	sh->send(ok);
+
+	Data fromUri = message.header(resip::h_From).uri().user();
+	Contents *body = message.getContents();
+
+	HeaderFieldValue & hf = body->getHeaderField();
+	mRccAgent.sendMessageTxt(fromUri.begin(), body->getHeaderField().getBuffer(), body->getHeaderField().getLength());
 }
 
 /////////////////////////////////////

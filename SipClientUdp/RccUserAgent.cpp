@@ -19,6 +19,9 @@ void RccMessage::netToHost() const
 		rtpCount = rccAnm.rtpCount;
 		pRtpData = rccAnm.rtpData;
 		break;
+	case RCC_TXT:
+		rccTxt.txtLength = ntohs(rccTxt.txtLength);
+		break;
 	}
 
 	for (int i = 0; i < rtpCount; i++)
@@ -45,6 +48,9 @@ void RccMessage::hostToNet() const
 	case RCC_ANM:
 		rtpCount = rccAnm.rtpCount;
 		pRtpData = rccAnm.rtpData;
+		break;
+	case RCC_TXT:
+		rccTxt.txtLength = htons(rccTxt.txtLength);
 		break;
 	}
 
@@ -283,6 +289,30 @@ bool RccUserAgent::sendMessageAnm(const RccRtpDataList& rtpDataList)
 	return sendMessage(*msg);
 }
 
+bool RccUserAgent::sendMessageTxt(const char * callNumber, const char * txt, unsigned short len)
+{
+	if (mSocket == INVALID_SOCKET || txt == NULL || len == 0)
+		return false;
+
+	int msg_size = sizeof(RccMessage::rccTxt) + len;
+	char* data = new char[msg_size + RccMessage::HEAD_SIZE];
+	memset(data, 0, msg_size + RccMessage::HEAD_SIZE);
+
+	RccMessage* msg = (RccMessage*)data;
+	msg->type = RccMessage::RCC_TXT;
+	msg->size = msg_size;
+
+	msg->rccTxt.callNumLength = (unsigned char)strlen(callNumber);
+	strncpy(msg->rccTxt.callNum, callNumber, RccMessage::CALLNUM_ALLOC_SIZE);
+
+	msg->rccTxt.txtLength = len;
+	memcpy(msg->rccTxt.txtData, txt, len);
+
+	bool ret = sendMessage(*msg);
+	delete[] data;
+	return ret;
+}
+
 bool RccUserAgent::sendMessageRel(unsigned char reason)
 {
 	if (mSocket == INVALID_SOCKET)
@@ -391,6 +421,23 @@ void RccUserAgent::dispatchMessage(const char * data, IRccMessageCallback * cb)
 		}
 
 		cb->onMessageAnm(rtpDataList);
+
+		break;
+	}
+	case RccMessage::RCC_TXT:
+	{
+		if (msg->rccTxt.callNumLength > RccMessage::CALLNUM_ALLOC_SIZE || msg->rccTxt.callNumLength == 0
+			|| msg->rccTxt.txtLength == 0)
+		{
+			cb->onInvalidMessage(msg);
+			break;
+		}
+
+		char callNum[RccMessage::CALLNUM_ALLOC_SIZE + 1];
+		memset(callNum, 0, RccMessage::CALLNUM_ALLOC_SIZE + 1);
+		memcpy(callNum, msg->rccTxt.callNum, msg->rccTxt.callNumLength);
+
+		cb->onMessageTxt(callNum, msg->rccTxt.txtData, msg->rccTxt.txtLength);
 
 		break;
 	}
