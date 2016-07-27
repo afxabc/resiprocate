@@ -117,7 +117,9 @@ CSipClientRccDummyDlg::CSipClientRccDummyDlg(CWnd* pParent /*=NULL*/)
 	, videoEnable_(FALSE)
 	, sendAudio_(0)
 	, sendVideo_(0)
-	, msgTxt_(_T("可可、向日葵、菠萝、马铃薯、木薯、巴西橡胶树、烟草、金鸡纳树、玉米、番茄、巴拉圭茶、辣椒"))
+	, recvAudio_(0)
+	, recvVideo_(0)
+	, msgTxt_(_T("A Simple Example 语音。"))
 {
 	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
 }
@@ -410,6 +412,7 @@ void CSipClientRccDummyDlg::onMessageConn()
 void CSipClientRccDummyDlg::mediaStart()
 {
 	sendAudio_ = 0;
+	recvAudio_ = 0;
 	rtpAudio_.start(PTIME);
 	audioWrite_.start(rtpAudio_.rate(), PTIME);
 	if (audioSrc_ == 0)
@@ -418,6 +421,7 @@ void CSipClientRccDummyDlg::mediaStart()
 		audioFile_.start(rtpAudio_.rate(), PTIME);
 
 	sendVideo_ = 0;
+	recvVideo_ = 0;
 	if (videoEnable_)
 	{
 		rtpVideo_.start(0, VIDEO_FPS);
@@ -589,6 +593,7 @@ void CSipClientRccDummyDlg::onMediaData(char * data, int len, unsigned char payl
 				pcmBuf[j] = alaw_to_s16(data[j]);
 
 			audioWrite_.inputPcm((char*)pcmBuf, sz * 2);
+			recvAudio_ += sz;
 			len -= sz;
 			data += sz;
 		}
@@ -602,6 +607,7 @@ void CSipClientRccDummyDlg::onMediaData(char * data, int len, unsigned char payl
 		}
 		seqBak = seq;
 
+		recvVideo_ += len;
 		videoDraw_.decodeAndDraw(data, len);
 	}
 	else
@@ -645,13 +651,17 @@ void CSipClientRccDummyDlg::OnTimer(UINT_PTR nIDEvent)
 	// TODO: 在此添加消息处理程序代码和/或调用默认值
 	__super::OnTimer(nIDEvent);
 
-	float av = (float)sendAudio_ / TIMER_SPAN/1000;
+	float a_s = (float)sendAudio_ / TIMER_SPAN/1000;
 	sendAudio_ = 0;
-	float vv = (float)sendVideo_ / TIMER_SPAN/1000;
+	float a_r = (float)recvAudio_ / TIMER_SPAN/1000;
+	recvAudio_ = 0;
+	float v_s = (float)sendVideo_ / TIMER_SPAN/1000;
 	sendVideo_ = 0;
+	float v_r = (float)recvVideo_ / TIMER_SPAN/1000;
+	recvVideo_ = 0;
 
 	CString str;
-	str.Format(_T("%s A=%.2fK V=%.2fK"), strTitle_, av, vv);
+	str.Format(_T("%s A=%.2fK/%.2fK V=%.2fK/%.2fK"), strTitle_, a_s, a_r, v_s, v_r);
 	SetWindowText(str);
 }
 

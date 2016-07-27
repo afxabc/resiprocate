@@ -103,6 +103,8 @@ protected:
 
 	UINT sendAudio_;
 	UINT sendVideo_;
+	UINT recvAudio_;
+	UINT recvVideo_;
 	static const int TIMER_SPAN = 2;
 
 	VideoCapDesktop videoCap_; 
